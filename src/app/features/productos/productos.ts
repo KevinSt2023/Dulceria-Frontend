@@ -36,7 +36,10 @@ import { UnidadesService } from '../../core/services/unidades';
               <th class="text-center p-3">Nombre</th>
               <th class="text-center p-3">Descripcion</th>
               <th class="text-center p-3">Precio Venta</th>
-              <th class="text-center p-3">Estado</th>              
+              <th class="text-center p-3">Estado</th>   
+              <th class="text-center p-3">Categoria</th>
+              <th class="text-center p-3">Unidad</th>
+              <th class="text-center p-3">Tipo de prod.</th>           
               <th class="text-center p-3 w-32">Acciones</th>
             </tr>
           </thead>
@@ -57,6 +60,9 @@ import { UnidadesService } from '../../core/services/unidades';
                   {{ p.activo ? 'Activo' : 'Inactivo' }}
                 </span>
               </td>
+              <td class="p-3 text-center">{{ p.categoria }}</td>
+              <td class="p-3 text-center">{{ p.unidades }}</td>
+              <td class="p-3 text-center">{{ p.tipos }}</td>
               <td class="p-3 text-center space-x-2">
                 <button
                   (click)="editar(p)"
@@ -232,7 +238,7 @@ export class ProductosComponent implements OnInit {
 
     this.productosService.getProductos().subscribe({
       next: (res: any) => {
-        this.productos = res;
+        this.productos = res;        
         this.loading = false;
         this.cd.detectChanges();
       },
@@ -241,7 +247,7 @@ export class ProductosComponent implements OnInit {
         this.loading = false;
         this.cd.detectChanges();
       },
-    });
+    });    
   }
 
   nuevo() {

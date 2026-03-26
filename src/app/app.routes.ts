@@ -42,11 +42,23 @@ export const routes: Routes = [
             .then(m => m.UnidadesComponent)
       },
       {
+        path: 'usuarios',
+        loadComponent: () =>
+          import('./features/usuarios/usuarios')
+            .then(m => m.UsuarioComponent)
+      },
+      {
+        path: 'roles',
+        loadComponent: () =>
+          import('./features/roles/roles')
+            .then(m => m.RolesComponent)
+      },
+      {
         path: '',
         loadComponent: () =>
           import('./features/home/home')
           .then(m => m.HomeComponent)
-      }
+      }      
     ]
   },
 

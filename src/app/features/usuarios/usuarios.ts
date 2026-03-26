@@ -1,17 +1,18 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { UnidadesService } from '../../core/services/unidades';
+import { RolesService } from '../../core/services/roles';
+import { UsuariosService } from '../../core/services/usuarios';
 
 @Component({
-  selector: 'app-unidades',
+  selector: 'app-usuarios',
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
     <div>
       <!-- HEADER -->
       <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-bold text-gray-700">Unidades de Medida</h2>
+        <h2 class="text-xl font-bold text-gray-700">Usuarios</h2>
 
         <button
           (click)="nuevo()"
@@ -31,19 +32,20 @@ import { UnidadesService } from '../../core/services/unidades';
             <tr>
               <th class="text-center p-3">ID</th>
               <th class="text-center p-3">Nombre</th>
-              <th class="text-center p-3">Abreviatura</th>  
-              <th class="text-center p-3">Estado</th>
+              <th class="text-center p-3">Email</th>
+              <th class="text-center p-3">Estado</th>   
+              <th class="text-center p-3">Rol</th>       
               <th class="text-center p-3 w-32">Acciones</th>
             </tr>
           </thead>
 
           <tbody>
-            <tr *ngFor="let p of unidades" class="border-t hover:bg-gray-50">
-              <td class="p-3 text-center">{{ p.unidad_id }}</td>              
-              <td class="p-3 max-w-sm text-center">
-                <p class="line-clamp-2">{{ p.nombre }}</p>
-              </td>
-              <td class="p-3 text-center">{{ p.abreviatura }}</td>   
+            <tr *ngFor="let p of usuarios" class="border-t hover:bg-gray-50">
+              <td class="p-3 text-center">{{ p.usuario_id }}</td>
+              <td class="p-3 text-center">{{ p.nombre }}</td>
+              <td class="p-3 max-w-sm">
+                <p class="line-clamp-2">{{ p.email }}</p>
+              </td>              
               <td class="p-3 text-center">
                 <span
                   [ngClass]="p.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
@@ -51,14 +53,15 @@ import { UnidadesService } from '../../core/services/unidades';
                 >
                   {{ p.activo ? 'Activo' : 'Inactivo' }}
                 </span>
-              </td>           
+              </td>
+              <td class="p-3 text-center">{{ p.rolnombre }}</td>
               <td class="p-3 text-center space-x-2">
                 <button
                   (click)="editar(p)"
                   class="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
                 >
                   ✏️
-                </button>               
+                </button>                
               </td>
             </tr>
           </tbody>
@@ -71,7 +74,7 @@ import { UnidadesService } from '../../core/services/unidades';
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       >
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 animate-fade-in">
-          <h3 class="text-lg font-bold mb-4">{{ editando ? 'Editar' : 'Nuevo' }} Unidad de Medida</h3>
+          <h3 class="text-lg font-bold mb-4">{{ editando ? 'Editar' : 'Nuevo' }} Actualizar Usuario</h3>
 
           <div class="space-y-3">
             <!-- NOMBRE -->
@@ -80,17 +83,22 @@ import { UnidadesService } from '../../core/services/unidades';
               <input [(ngModel)]="form.nombre" class="w-full p-2 border rounded-lg" />
             </div>
 
-            <!-- ABREVIATURA -->
             <div>
-              <label class="text-sm text-gray-600">Abreviatura</label>
-              <select [(ngModel)]="form.unidad_id" class="w-full p-2 border rounded-lg">
+              <label class="text-sm text-gray-600">Email</label>
+              <input [(ngModel)]="form.email" class="w-full p-2 border rounded-lg" />
+            </div>            
+            
+            <!-- ROL -->
+            <div>
+              <label class="text-sm text-gray-600">Rol</label>
+              <select [(ngModel)]="form.rol_id" class="w-full p-2 border rounded-lg">
                 <option value="">Seleccione</option>
-                <option *ngFor="let u of unidades" [value]="u.unidad_id">
-                  {{ u.nombre }}
+                <option *ngFor="let c of roles" [value]="c.rol_id">
+                  {{ c.nombre }}
                 </option>
               </select>
-            </div>
-            
+            </div>            
+
             <label class="flex gap-2 items-center mb-4">
               <input type="checkbox" [(ngModel)]="form.activo" />
               Activo
@@ -114,34 +122,40 @@ import { UnidadesService } from '../../core/services/unidades';
     </div>
   `,
 })
-export class UnidadesComponent implements OnInit {
-  unidades: any[] = [];
+export class UsuarioComponent implements OnInit {
+  usuarios: any[] = [];
+  roles: any[] = [];
   loading = true;
 
   mostrarForm = false;
   editando = false;
 
   form: any = {
-    unidad_id: null,
+    usuario_id: null,
     nombre: '',
-    abreviatura: ''
+    email: "",
+    rol_id: null
   };
 
   constructor(
-    private unidadesService: UnidadesService,
+    private usuarioservice: UsuariosService,
+    private rolesservice: RolesService,
     private cd: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
-    this.cargar();    
+    this.cargar();
+    this.rolesservice.getRoles().subscribe((res: any) => {
+      this.roles = res;
+    });    
   }
 
   cargar() {
     this.loading = true;
 
-    this.unidadesService.getUnidades().subscribe({
+    this.usuarioservice.getUsuarios().subscribe({
       next: (res: any) => {
-        this.unidades = res;
+        this.usuarios = res;
         this.loading = false;
         this.cd.detectChanges();
       },
@@ -155,9 +169,10 @@ export class UnidadesComponent implements OnInit {
 
   nuevo() {
     this.form = {
-      unidad_id: null,
+      usuario_id: null,
       nombre: '',
-      abreviatura: '',
+      email: '',
+      rol_id: null,      
       activo: true
     };
     this.editando = false;
@@ -172,12 +187,12 @@ export class UnidadesComponent implements OnInit {
 
   guardar() {
     if (this.editando) {
-      this.unidadesService.updateunidades(this.form.unidad_id, this.form).subscribe(() => {
+      this.usuarioservice.updateUsuarios(this.form.usuario_id, this.form).subscribe(() => {
         this.cargar();
         this.cancelar();
       });
     } else {
-      this.unidadesService.createunidades(this.form).subscribe(() => {
+      this.usuarioservice.createUsuarios(this.form).subscribe(() => {
         this.cargar();
         this.cancelar();
       });
@@ -185,9 +200,9 @@ export class UnidadesComponent implements OnInit {
   }
 
   eliminar(id: number) {
-    if (!confirm('¿Eliminar unidad de medida?')) return;
+    if (!confirm('¿Eliminar producto?')) return;
 
-    this.unidadesService.deleteunidades(id).subscribe(() => {
+    this.usuarioservice.deleteUsuarios(id).subscribe(() => {
       this.cargar();
     });
   }

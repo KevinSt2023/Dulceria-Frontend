@@ -49,8 +49,8 @@ import { CommonModule } from '@angular/common';
         </div>
 
         <div *ngIf="openMenu === 'conf'" class="ml-3 mt-2 space-y-1">
-          <a class="block p-2 rounded hover:bg-slate-700">Usuarios</a>
-          <a class="block p-2 rounded hover:bg-slate-700">Roles</a>
+          <a routerLink="/app/usuarios" class="block p-2 rounded hover:bg-slate-700">Usuarios</a>
+          <a routerLink="/app/roles" class="block p-2 rounded hover:bg-slate-700">Rol de usuarios</a>
         </div>
       </div>
 
