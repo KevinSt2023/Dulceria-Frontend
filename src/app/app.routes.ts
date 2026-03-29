@@ -54,6 +54,30 @@ export const routes: Routes = [
             .then(m => m.RolesComponent)
       },
       {
+        path: 'sucursales',
+        loadComponent: () =>
+          import('./features/sucursales/sucursales')
+            .then(m => m.SucursalesComponent)
+      },
+      {
+        path: 'dashboard',
+        loadComponent: () =>
+          import('./features/dashboard/dashboard')
+            .then(m => m.DashboardComponent)
+      },
+      {
+        path: 'almacenes',
+        loadComponent: () =>
+          import('./features/almacenes/almacenes')
+            .then(m => m.AlmacenesComponent)
+      },
+      {
+        path: 'inventario',
+        loadComponent: () =>
+          import('./features/inventario/inventario')
+            .then(m => m.InventarioComponent)
+      },
+      {
         path: '',
         loadComponent: () =>
           import('./features/home/home')
