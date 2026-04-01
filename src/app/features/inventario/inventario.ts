@@ -4,14 +4,16 @@ import { FormsModule } from '@angular/forms';
 import { InventarioService } from '../../core/services/inventario';
 import { ProductosService } from '../../core/services/productos';
 import { AlmacenesService } from '../../core/services/almacenes';
+import Swal from 'sweetalert2';
+
 
 @Component({
   selector: 'app-inventario',
-  standalone: true,
+  standalone: true,  
   imports: [CommonModule, FormsModule],
   template: `
     <h2 class="text-xl font-bold mb-6">📦 Inventario</h2>
-
+    
     <!-- BOTÓN -->
     <button
       (click)="abrirModal()"
@@ -28,128 +30,170 @@ import { AlmacenesService } from '../../core/services/almacenes';
             <th class="p-3 text-center">ID</th>
             <th class="p-3 text-center">Producto</th>
             <th class="p-3 text-center">Almacén</th>
-            <th class="p-3 text-center">Stock Mínimo</th>
-            <th class="p-3 text-center">Stock Actual</th>
+            <th class="p-3 text-center">Stock Min</th>
+            <th class="p-3 text-center">Stock Max</th>
+            <th class="p-3 text-center">Stock</th>
+            <th class="p-3 text-center">Config. Stock</th>
           </tr>
         </thead>
 
-        <tbody>          
+        <tbody>
           <tr *ngFor="let i of inventario" class="border-t text-center">
             <td class="p-3">{{ i.producto_id }}</td>
             <td class="p-3">{{ i.nombreproducto }}</td>
             <td class="p-3">{{ i.almacennombre }}</td>
-            <td class="p-3 font-bold">{{ i.stock_minimo }}</td>
-            <td class="p-3 font-bold">{{ i.stock_actual }}</td>
+            <td class="p-3">{{ i.stock_minimo }}</td>
+            <td class="p-3">{{ i.stock_maximo }}</td>
+
+            <td class="p-3 font-bold"
+              [ngClass]="{
+                'text-red-600': i.stock_actual < i.stock_minimo,
+                'text-yellow-600': i.stock_actual > i.stock_maximo
+              }">
+              {{ i.stock_actual }}
+            </td>
+
+            <td class="p-3">
+              <button
+                (click)="editarConfig(i)"
+                class="bg-gray-200 px-2 py-1 rounded hover:bg-gray-300"
+              >
+                ⚙️
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- MODAL -->
+    <!-- MODAL MOVIMIENTO -->
     <div *ngIf="mostrarModal"
-  class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
 
-  <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
-    
-    <div class="flex justify-between items-center mb-6">
-      <h3 class="text-xl font-bold text-gray-800">➕ Registrar Movimiento</h3>
-      <button (click)="cerrarModal()" class="text-gray-400 hover:text-gray-600">✕</button>
-    </div>
-
-    <div *ngIf="cargandoProductos" class="text-center py-4 text-gray-500 italic">
-      Cargando catálogo de productos...
-    </div>
-
-    <div *ngIf="!cargandoProductos" class="space-y-4">
-
-      <div>
-        <label for="prod" class="block text-sm font-semibold text-gray-700 mb-1">Producto</label>
-        <select id="prod" [(ngModel)]="form.producto_id" 
-                class="w-full p-2.5 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-          <option [ngValue]="null">Seleccione un producto</option>
-          <option *ngFor="let p of productos" [ngValue]="p.producto_id">
-            {{ p.nombre }}
-          </option>
-        </select>
-      </div>
-      
-      <div class="grid grid-cols-2 gap-4">
-        <div>
-          <label for="alma" class="block text-sm font-semibold text-gray-700 mb-1">Almacén</label>
-          <select [(ngModel)]="form.almacen_id" class="w-full p-2 border rounded-lg">
-                <option value="">Seleccione</option>
-                <option *ngFor="let c of almacenes" [value]="c.almacen_id">
-                  {{ c.nombre }}
-                </option>
-              </select>
+      <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
+        <div class="flex justify-between mb-4">
+          <h3 class="text-lg font-bold">➕ Movimiento</h3>
+          <button (click)="cerrarModal()">✕</button>
         </div>
 
-        <div>
-          <label for="tipo" class="block text-sm font-semibold text-gray-700 mb-1">Tipo de Operación</label>
-          <select id="tipo" [(ngModel)]="form.tipo_movimiento" 
-                  class="w-full p-2.5 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-            <option value="">Seleccione...</option>
-            <option value="ENTRADA">Entrada (+)</option>
-            <option value="SALIDA">Salida (-)</option>
-            <option value="AJUSTE">Ajuste</option>
-          </select>
+        <div *ngIf="cargandoProductos">Cargando productos...</div>
+
+        <div *ngIf="!cargandoProductos" class="space-y-3">
+
+          <div>
+            <label class="text-sm text-gray-600"> Producto </label>
+            <select [(ngModel)]="form.producto_id" class="w-full p-2 border rounded">
+              <option [ngValue]="null">Seleccione producto</option>
+              <option *ngFor="let p of productos" [ngValue]="p.producto_id">
+                {{ p.nombre }}
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-sm text-gray-600"> Almacén </label>
+            <select [(ngModel)]="form.almacen_id" class="w-full p-2 border rounded">
+              <option [ngValue]="null">Seleccione almacén</option>
+              <option *ngFor="let a of almacenes" [ngValue]="a.almacen_id">
+                {{ a.nombre }}
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-sm text-gray-600"> Tipo de movimiento </label>
+            <select [(ngModel)]="form.tipo_movimiento" class="w-full p-2 border rounded">
+              <option value="">Seleccione tipo</option>
+              <option value="ENTRADA">Entrada</option>
+              <option value="SALIDA">Salida</option>
+              <option value="AJUSTE">Ajuste</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-sm text-gray-600"> Cantidad </label>
+            <input [(ngModel)]="form.cantidad" type="number" class="w-full p-2 border rounded" />
+          </div>
+
+          <div>
+            <label class="text-sm text-gray-600"> Motivo </label>
+            <input [(ngModel)]="form.motivo" class="w-full p-2 border rounded" />
+          </div>
+
+          <button 
+            (click)="guardar()" 
+            [disabled]="guardando"
+            class="w-full bg-blue-600 text-white p-2 rounded disabled:opacity-50">
+            {{ guardando ? 'Guardando...' : 'Guardar' }}
+          </button>
+
         </div>
       </div>
-
-      <div>
-        <label for="cant" class="block text-sm font-semibold text-gray-700 mb-1">Cantidad a mover</label>
-        <input id="cant" [(ngModel)]="form.cantidad" type="number" min="1"
-               class="w-full p-2.5 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-               placeholder="Ej: 10" />
-      </div>
-
-      <div>
-        <label for="mot" class="block text-sm font-semibold text-gray-700 mb-1">Motivo / Referencia</label>
-        <input id="mot" [(ngModel)]="form.motivo"
-               class="w-full p-2.5 border rounded-lg bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-               placeholder="Ej: Compra a proveedor, Ajuste de inventario..." />
-      </div>
-
-      <div class="flex justify-end gap-3 mt-6">
-        <button (click)="cerrarModal()"
-          class="px-5 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition">
-          Cancelar
-        </button>
-
-        <button (click)="guardar()"
-          class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-md transition disabled:opacity-50"
-          [disabled]="!form.producto_id || !form.tipo_movimiento || form.cantidad <= 0">
-          Guardar Cambios
-        </button>
-      </div>
-
     </div>
-  </div>
-</div>
-  `
+
+    <!-- MODAL CONFIG -->
+    <div *ngIf="mostrarConfig"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+
+      <div class="bg-white rounded-xl p-6 w-full max-w-md">
+        <h3 class="font-bold mb-4">⚙️ Configurar Stock</h3>
+
+        <div class="mb-2">
+          <label class="text-sm text-gray-600"> Stock mínimo </label>
+          <input [(ngModel)]="config.stock_minimo" type="number"
+            class="w-full p-2 border rounded" />
+        </div>
+
+        <div class="mb-4">
+          <label class="text-sm text-gray-600"> Stock máximo </label>
+          <input [(ngModel)]="config.stock_maximo" type="number"
+            class="w-full p-2 border rounded" />
+        </div>
+
+        <div class="flex justify-end gap-2">
+          <button (click)="cerrarConfig()" class="px-4 py-2 bg-gray-300 rounded">
+            Cancelar
+          </button>
+
+          <button (click)="guardarConfig()"
+            class="px-4 py-2 bg-blue-600 text-white rounded">
+            Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+  `,
 })
 export class InventarioComponent implements OnInit {
 
   inventario: any[] = [];
   productos: any[] = [];
   almacenes: any[] = [];
-
   mostrarModal = false;
+  mostrarConfig = false;
   cargandoProductos = false;
+  guardando = false;
 
   form: any = this.getFormInicial();
+
+  config: any = {
+    producto_id: null,
+    almacen_id: null,
+    stock_minimo: 0,
+    stock_maximo: 0,
+  };
 
   constructor(
     private inventarioService: InventarioService,
     private productosService: ProductosService,
-    private almacenesService : AlmacenesService,
-    private cd: ChangeDetectorRef
+    private almacenesService: AlmacenesService,
+    private cd: ChangeDetectorRef,
   ) {}
 
   ngOnInit() {
     this.cargar();
 
-    this.almacenesService.getAlmacenes().subscribe((res:any) => {
+    this.almacenesService.getAlmacenes().subscribe((res: any) => {
       this.almacenes = res;
     });
   }
@@ -160,54 +204,118 @@ export class InventarioComponent implements OnInit {
       almacen_id: null,
       tipo_movimiento: '',
       cantidad: 0,
-      motivo: ''
+      motivo: '',
     };
   }
 
   cargar() {
-    this.inventarioService.getInventario().subscribe({
-      next: (res: any) => {
-        this.inventario = res;
-        this.cd.detectChanges();
-      },
-      error: (err) => console.error(err)
+  this.inventarioService.getInventario().subscribe((res: any) => {
+    this.inventario = res;
+
+    const alertas: string[] = [];
+
+    res.forEach((i: any) => {
+      if (i.stock_actual < i.stock_minimo) {
+        alertas.push(`🔴 ${i.nombreproducto} está por debajo del stock mínimo`);
+      }
+
+      if (i.stock_actual > i.stock_maximo && i.stock_maximo > 0) {
+        alertas.push(`🟡 ${i.nombreproducto} supera el stock máximo`);
+      }
     });
-  }
+
+    // 🔥 SWEET ALERT
+    if (alertas.length > 0) {
+      Swal.fire({
+        title: '⚠️ Alerta de Inventario',
+        html: alertas.join('<br>'),
+        icon: 'warning',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#2563eb',
+        allowOutsideClick: false
+      });
+    }
+
+    this.cd.detectChanges();
+  });
+}
+
 
   abrirModal() {
+    this.form = this.getFormInicial();
     this.mostrarModal = true;
     this.cargandoProductos = true;
 
-    this.productosService.getProductos().subscribe({
-      next: (res: any) => {
-        this.productos = res;
-        this.cargandoProductos = false;
-        this.cd.detectChanges();
-      },
-      error: (err) => {
-        console.error(err);
-        this.cargandoProductos = false;
-      }
+    this.productosService.getProductos().subscribe((res: any) => {
+      this.productos = res;
+      this.cargandoProductos = false;
+      this.cd.detectChanges();
     });
   }
 
   cerrarModal() {
     this.mostrarModal = false;
     this.form = this.getFormInicial();
+    this.cargandoProductos = false;
+    this.guardando = false;
   }
 
   guardar() {
-    if (!this.form.producto_id || !this.form.tipo_movimiento) {
-      alert('Completa los campos obligatorios');
-      return;
-    }
+    if (this.guardando) return;
+
+    if (!this.form.producto_id) return alert('Selecciona un producto');
+    if (!this.form.almacen_id) return alert('Selecciona un almacén');
+    if (!this.form.tipo_movimiento) return alert('Selecciona el tipo');
+    if (this.form.cantidad <= 0) return alert('Cantidad inválida');
+
+    this.guardando = true;
 
     this.inventarioService.createMovimiento(this.form).subscribe({
-      next: () => {
+      next: (res: any) => {
+        if (res.alerta) {
+        Swal.fire({
+          title: '⚠️ Atención',
+          text: res.alerta,
+          icon: 'warning',
+          confirmButtonText: 'Ok'
+        });
+      }
+
+
         this.cargar();
         this.cerrarModal();
       },
-      error: (err) => console.error(err)
+      error: (err) => {
+        Swal.fire({
+          title: 'Error',
+          text: err.error,
+          icon: 'error',
+          confirmButtonText: 'Ok'
+        });
+
+        this.guardando = false; // 🔥 FIX
+      }
+    });
+  }
+
+  editarConfig(i: any) {
+    this.config = {
+      producto_id: i.producto_id,
+      almacen_id: i.almacen_id,
+      stock_minimo: i.stock_minimo,
+      stock_maximo: i.stock_maximo,
+    };
+    this.mostrarConfig = true;
+  }
+
+  cerrarConfig() {
+    this.mostrarConfig = false;
+  }
+
+  guardarConfig() {
+    this.inventarioService.updateConfig(this.config).subscribe(() => {
+      this.cargar();
+      this.cerrarConfig();
     });
   }
 }

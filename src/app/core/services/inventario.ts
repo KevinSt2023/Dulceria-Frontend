@@ -14,4 +14,8 @@ export class InventarioService {
   createMovimiento(data: any) {
     return this.http.post(`${environment.apiUrl}/inventario`, data);
   }
+
+  updateConfig(data: any) {
+  return this.http.put(`${environment.apiUrl}/inventario/configuracion`, data);
+  }
 }
