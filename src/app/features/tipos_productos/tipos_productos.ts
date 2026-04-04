@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TiposProductosService } from '../../core/services/tipos-productos';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-TiposProducto',
@@ -30,8 +31,8 @@ import { TiposProductosService } from '../../core/services/tipos-productos';
           <thead class="bg-gray-100 text-gray-600 text-sm">
             <tr>
               <th class="text-center p-3">ID</th>
-              <th class="text-center p-3">Nombre</th>   
-              <th class="text-center p-3">Estado</th>          
+              <th class="text-center p-3">Nombre</th>
+              <th class="text-center p-3">Estado</th>
               <th class="text-center p-3 w-32">Acciones</th>
             </tr>
           </thead>
@@ -39,7 +40,7 @@ import { TiposProductosService } from '../../core/services/tipos-productos';
           <tbody>
             <tr *ngFor="let p of tipos" class="border-t hover:bg-gray-50">
               <td class="p-3 text-center">{{ p.tipo_producto_id }}</td>
-              <td class="p-3 text-center">{{ p.nombre }}</td>  
+              <td class="p-3 text-center">{{ p.nombre }}</td>
               <td class="p-3 text-center">
                 <span
                   [ngClass]="p.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
@@ -47,14 +48,14 @@ import { TiposProductosService } from '../../core/services/tipos-productos';
                 >
                   {{ p.activo ? 'Activo' : 'Inactivo' }}
                 </span>
-              </td>            
+              </td>
               <td class="p-3 text-center space-x-2">
                 <button
                   (click)="editar(p)"
                   class="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
                 >
                   ✏️
-                </button>                
+                </button>
               </td>
             </tr>
           </tbody>
@@ -67,32 +68,35 @@ import { TiposProductosService } from '../../core/services/tipos-productos';
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       >
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 animate-fade-in">
-          <h3 class="text-lg font-bold mb-4">{{ editando ? 'Editar' : 'Nuevo' }} Origen de Productos</h3>
+          <h3 class="text-lg font-bold mb-4">
+            {{ editando ? 'Editar' : 'Nuevo' }} Origen de Productos
+          </h3>
 
           <div class="space-y-3">
             <!-- NOMBRE -->
             <div>
               <label class="text-sm text-gray-600">Nombre de origen</label>
               <input [(ngModel)]="form.nombre" class="w-full p-2 border rounded-lg" />
-            </div> 
+            </div>
 
             <label class="flex gap-2 items-center mb-4">
               <input type="checkbox" [(ngModel)]="form.activo" />
               Activo
-            </label> 
+            </label>
 
-          <!-- BOTONES -->
-          <div class="flex justify-end gap-2 mt-5">
-            <button (click)="cancelar()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
-              Cancelar
-            </button>
+            <!-- BOTONES -->
+            <div class="flex justify-end gap-2 mt-5">
+              <button (click)="cancelar()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                Cancelar
+              </button>
 
-            <button
-              (click)="guardar()"
-              class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-            >
-              Guardar
-            </button>
+              <button
+                (click)="guardar()"
+                class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Guardar
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -100,7 +104,7 @@ import { TiposProductosService } from '../../core/services/tipos-productos';
   `,
 })
 export class TiposComponent implements OnInit {
-  tipos: any[] = [];  
+  tipos: any[] = [];
   loading = true;
 
   mostrarForm = false;
@@ -108,16 +112,16 @@ export class TiposComponent implements OnInit {
 
   form: any = {
     tipo_producto_id: null,
-    nombre: ''
+    nombre: '',
   };
 
-  constructor( 
-    private tiposproductoservice: TiposProductosService,    
+  constructor(
+    private tiposproductoservice: TiposProductosService,
     private cd: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
-    this.cargar();       
+    this.cargar();
   }
 
   cargar() {
@@ -141,7 +145,7 @@ export class TiposComponent implements OnInit {
     this.form = {
       tipo_producto_id: null,
       nombre: null,
-      activo: true
+      activo: true,
     };
     this.editando = false;
     this.mostrarForm = true;
@@ -154,25 +158,61 @@ export class TiposComponent implements OnInit {
   }
 
   guardar() {
+    if (!this.form.nombre) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campo requerido',
+        text: 'El nombre es obligatorio',
+        confirmButtonText: 'Aceptar',
+      });
+      return;
+    }
+
     if (this.editando) {
-      this.tiposproductoservice.updateTipos(this.form.tipo_producto_id, this.form).subscribe(() => {
-        this.cargar();  
-        this.cancelar();
+      this.tiposproductoservice.updateTipos(this.form.tipo_producto_id, this.form).subscribe({
+        next: () => {
+          Swal.fire({
+            icon: 'success',
+            title: 'Actualizado',
+            text: 'Tipo de Producto actualizado correctamente',
+            confirmButtonText: 'Aceptar',
+          });
+
+          this.cargar();
+          this.cancelar();
+        },
+        error: (err) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.error || 'Error al actualizar',
+            confirmButtonText: 'Aceptar',
+          });
+        },
       });
     } else {
-      this.tiposproductoservice.createTipos(this.form).subscribe(() => {
-        this.cargar();
-        this.cancelar();
+      this.tiposproductoservice.createTipos(this.form).subscribe({
+        next: () => {
+          Swal.fire({
+            icon: 'success',
+            title: 'Registrado',
+            text: 'Tipo de Producto creado correctamente',
+            confirmButtonText: 'Aceptar',
+          });
+
+          this.cargar();
+          this.cancelar();
+        },
+        error: (err) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.error || 'Error al registrar',
+            confirmButtonText: 'Aceptar',
+          });
+        },
       });
     }
-  }
-
-  eliminar(id: number) {
-    if (!confirm('¿Eliminar Origen de producto?')) return;
-
-    this.tiposproductoservice.deleteTipos(id).subscribe(() => {
-      this.cargar();
-    });
   }
 
   cancelar() {

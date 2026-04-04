@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RolesService } from '../../core/services/roles';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-roles',
@@ -31,14 +32,14 @@ import { RolesService } from '../../core/services/roles';
             <tr>
               <th class="text-center p-3">ID</th>
               <th class="text-center p-3">Nombre</th>
-              <th class="text-center p-3">Estado</th>             
+              <th class="text-center p-3">Estado</th>
               <th class="text-center p-3 w-32">Acciones</th>
             </tr>
           </thead>
 
           <tbody>
             <tr *ngFor="let p of roles" class="border-t hover:bg-gray-50">
-              <td class="p-3 text-center">{{ p.rol_id }}</td>              
+              <td class="p-3 text-center">{{ p.rol_id }}</td>
               <td class="p-3 max-w-sm text-center">
                 <p class="line-clamp-2">{{ p.nombre }}</p>
               </td>
@@ -49,7 +50,7 @@ import { RolesService } from '../../core/services/roles';
                 >
                   {{ p.activo ? 'Activo' : 'Inactivo' }}
                 </span>
-              </td>              
+              </td>
               <td class="p-3 text-center space-x-2">
                 <button
                   (click)="editar(p)"
@@ -81,20 +82,21 @@ import { RolesService } from '../../core/services/roles';
             <label class="flex gap-2 items-center mb-4">
               <input type="checkbox" [(ngModel)]="form.activo" />
               Activo
-            </label>            
+            </label>
 
-          <!-- BOTONES -->
-          <div class="flex justify-end gap-2 mt-5">
-            <button (click)="cancelar()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
-              Cancelar
-            </button>
+            <!-- BOTONES -->
+            <div class="flex justify-end gap-2 mt-5">
+              <button (click)="cancelar()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                Cancelar
+              </button>
 
-            <button
-              (click)="guardar()"
-              class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-            >
-              Guardar
-            </button>
+              <button
+                (click)="guardar()"
+                class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Guardar
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -111,7 +113,7 @@ export class RolesComponent implements OnInit {
   form: any = {
     rol_id: null,
     nombre: '',
-    activo: true
+    activo: true,
   };
 
   constructor(
@@ -120,7 +122,7 @@ export class RolesComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.cargar();    
+    this.cargar();
   }
 
   cargar() {
@@ -144,7 +146,7 @@ export class RolesComponent implements OnInit {
     this.form = {
       rol_id: null,
       nombre: '',
-      activo: true
+      activo: true,
     };
     this.editando = false;
     this.mostrarForm = true;
@@ -157,26 +159,62 @@ export class RolesComponent implements OnInit {
   }
 
   guardar() {
+    if (!this.form.nombre) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campo requerido',
+        text: 'El nombre es obligatorio',
+        confirmButtonText: 'Aceptar',
+      });
+      return;
+    }
+
     if (this.editando) {
-      this.rolesservice.updateRoles(this.form.rol_id, this.form).subscribe(() => {
-        this.cargar();
-        this.cancelar();
+      this.rolesservice.updateRoles(this.form.rol_id, this.form).subscribe({
+        next: () => {
+          Swal.fire({
+            icon: 'success',
+            title: 'Actualizado',
+            text: 'Rol actualizado correctamente',
+            confirmButtonText: 'Aceptar',
+          });
+
+          this.cargar();
+          this.cancelar();
+        },
+        error: (err) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.error || 'Error al actualizar',
+            confirmButtonText: 'Aceptar',
+          });
+        },
       });
     } else {
-      this.rolesservice.createRoles(this.form).subscribe(() => {
-        this.cargar();
-        this.cancelar();
+      this.rolesservice.createRoles(this.form).subscribe({
+        next: () => {
+          Swal.fire({
+            icon: 'success',
+            title: 'Registrado',
+            text: 'Rol creado correctamente',
+            confirmButtonText: 'Aceptar',
+          });
+
+          this.cargar();
+          this.cancelar();
+        },
+        error: (err) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.error || 'Error al registrar',
+            confirmButtonText: 'Aceptar',
+          });
+        },
       });
     }
-  }
-
-  eliminar(id: number) {
-    if (!confirm('¿Desea inhabilitar este rol?')) return;
-
-    this.rolesservice.deleteRoles(id).subscribe(() => {
-      this.cargar();
-    });
-  }
+  }  
 
   cancelar() {
     this.mostrarForm = false;

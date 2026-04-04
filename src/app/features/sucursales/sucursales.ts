@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SucursalesService } from '../../core/services/sucursales';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-sucursales',
@@ -33,7 +34,7 @@ import { SucursalesService } from '../../core/services/sucursales';
               <th class="text-center p-3">Nombre</th>
               <th class="text-center p-3">Direccion</th>
               <th class="text-center p-3">Telefono</th>
-              <th class="text-center p-3">Estado</th>          
+              <th class="text-center p-3">Estado</th>
               <th class="text-center p-3 w-32">Acciones</th>
             </tr>
           </thead>
@@ -53,14 +54,14 @@ import { SucursalesService } from '../../core/services/sucursales';
                 >
                   {{ p.activo ? 'Activo' : 'Inactivo' }}
                 </span>
-              </td>              
+              </td>
               <td class="p-3 text-center space-x-2">
                 <button
                   (click)="editar(p)"
                   class="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
                 >
                   ✏️
-                </button>                
+                </button>
               </td>
             </tr>
           </tbody>
@@ -97,25 +98,26 @@ import { SucursalesService } from '../../core/services/sucursales';
             <div>
               <label class="text-sm text-gray-600">Telefono</label>
               <input [(ngModel)]="form.telefono" class="w-full p-2 border rounded-lg" />
-            </div>            
+            </div>
 
             <label class="flex gap-2 items-center mb-4">
               <input type="checkbox" [(ngModel)]="form.activo" />
               Activo
             </label>
 
-          <!-- BOTONES -->
-          <div class="flex justify-end gap-2 mt-5">
-            <button (click)="cancelar()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
-              Cancelar
-            </button>
+            <!-- BOTONES -->
+            <div class="flex justify-end gap-2 mt-5">
+              <button (click)="cancelar()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                Cancelar
+              </button>
 
-            <button
-              (click)="guardar()"
-              class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-            >
-              Guardar
-            </button>
+              <button
+                (click)="guardar()"
+                class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Guardar
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -133,7 +135,7 @@ export class SucursalesComponent implements OnInit {
     sucursal_id: null,
     nombre: '',
     direccion: '',
-    telefono: ''    
+    telefono: '',
   };
 
   constructor(
@@ -153,7 +155,7 @@ export class SucursalesComponent implements OnInit {
 
     this.sucursalService.getSucursales().subscribe({
       next: (res: any) => {
-        this.sucursales = res;        
+        this.sucursales = res;
         this.loading = false;
         this.cd.detectChanges();
       },
@@ -162,7 +164,7 @@ export class SucursalesComponent implements OnInit {
         this.loading = false;
         this.cd.detectChanges();
       },
-    });    
+    });
   }
 
   nuevo() {
@@ -170,8 +172,8 @@ export class SucursalesComponent implements OnInit {
       sucursal_id: null,
       nombre: '',
       direccion: '',
-      telefono: '',      
-      activo: true
+      telefono: '',
+      activo: true,
     };
     this.editando = false;
     this.mostrarForm = true;
@@ -184,27 +186,63 @@ export class SucursalesComponent implements OnInit {
   }
 
   guardar() {
+    if (!this.form.nombre) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campo requerido',
+        text: 'El nombre es obligatorio',
+        confirmButtonText: 'Aceptar',
+      });
+      return;
+    }
+
     if (this.editando) {
-      this.sucursalService.updateSucursales(this.form.sucursal_id, this.form).subscribe(() => {
-        this.cargar();
-        this.cancelar();
+      this.sucursalService.updateSucursales(this.form.sucursal_id, this.form).subscribe({
+        next: () => {
+          Swal.fire({
+            icon: 'success',
+            title: 'Actualizado',
+            text: 'Sucursal actualizada correctamente',
+            confirmButtonText: 'Aceptar',
+          });
+
+          this.cargar();
+          this.cancelar();
+        },
+        error: (err) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.error || 'Error al actualizar',
+            confirmButtonText: 'Aceptar',
+          });
+        },
       });
     } else {
-      this.sucursalService.createSucursales(this.form).subscribe(() => {
-        this.cargar();
-        this.cancelar();
+      this.sucursalService.createSucursales(this.form).subscribe({
+        next: () => {
+          Swal.fire({
+            icon: 'success',
+            title: 'Registrado',
+            text: 'Sucursal creada correctamente',
+            confirmButtonText: 'Aceptar',
+          });
+
+          this.cargar();
+          this.cancelar();
+        },
+        error: (err) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.error || 'Error al registrar',
+            confirmButtonText: 'Aceptar',
+          });
+        },
       });
     }
   }
-
-  eliminar(id: number) {
-    if (!confirm('¿Eliminar producto?')) return;
-
-    this.sucursalService.deleteSucursales(id).subscribe(() => {
-      this.cargar();
-    });
-  }
-
+  
   cancelar() {
     this.mostrarForm = false;
   }

@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { CategoriasService } from '../../core/services/categorias';
 import { TiposProductosService } from '../../core/services/tipos-productos';
 import { UnidadesService } from '../../core/services/unidades';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-productos',
@@ -36,16 +37,16 @@ import { UnidadesService } from '../../core/services/unidades';
               <th class="text-center p-3">Nombre</th>
               <th class="text-center p-3">Descripcion</th>
               <th class="text-center p-3">Precio Venta</th>
-              <th class="text-center p-3">Estado</th>   
+              <th class="text-center p-3">Estado</th>
               <th class="text-center p-3">Categoria</th>
               <th class="text-center p-3">Unidad</th>
-              <th class="text-center p-3">Tipo de prod.</th>           
+              <th class="text-center p-3">Tipo de prod.</th>
               <th class="text-center p-3 w-32">Acciones</th>
             </tr>
           </thead>
 
           <tbody>
-            <tr *ngFor="let p of productos" class="border-t hover:bg-gray-50">
+            <tr *ngFor="let p of productosPaginados" class="border-t hover:bg-gray-50">
               <td class="p-3 text-center">{{ p.producto_id }}</td>
               <td class="p-3 text-center">{{ p.nombre }}</td>
               <td class="p-3 max-w-sm">
@@ -69,11 +70,42 @@ import { UnidadesService } from '../../core/services/unidades';
                   class="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
                 >
                   ✏️
-                </button>                
+                </button>
               </td>
             </tr>
           </tbody>
         </table>
+
+        <!-- PAGINACIÓN -->
+        <div class="flex justify-center mt-4 gap-2">
+          <button
+            (click)="cambiarPagina(paginaActual - 1)"
+            [disabled]="paginaActual === 1"
+            class="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
+          >
+            ◀
+          </button>
+
+          <button
+            *ngFor="let p of [].constructor(totalPaginas()); let i = index"
+            (click)="cambiarPagina(i + 1)"
+            [ngClass]="{
+              'bg-blue-600 text-white': paginaActual === i + 1,
+              'bg-gray-200': paginaActual !== i + 1,
+            }"
+            class="px-3 py-1 rounded"
+          >
+            {{ i + 1 }}
+          </button>
+
+          <button
+            (click)="cambiarPagina(paginaActual + 1)"
+            [disabled]="paginaActual === totalPaginas()"
+            class="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
+          >
+            ▶
+          </button>
+        </div>
       </div>
 
       <!-- MODAL PRO -->
@@ -172,18 +204,19 @@ import { UnidadesService } from '../../core/services/unidades';
               Activo
             </label>
 
-          <!-- BOTONES -->
-          <div class="flex justify-end gap-2 mt-5">
-            <button (click)="cancelar()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
-              Cancelar
-            </button>
+            <!-- BOTONES -->
+            <div class="flex justify-end gap-2 mt-5">
+              <button (click)="cancelar()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
+                Cancelar
+              </button>
 
-            <button
-              (click)="guardar()"
-              class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-            >
-              Guardar
-            </button>
+              <button
+                (click)="guardar()"
+                class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              >
+                Guardar
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -195,6 +228,9 @@ export class ProductosComponent implements OnInit {
   tipos: any[] = [];
   unidades: any[] = [];
   productos: any[] = [];
+  paginaActual = 1;
+  registrosPorPagina = 5;
+  productosPaginados: any[] = [];
   loading = true;
 
   mostrarForm = false;
@@ -238,7 +274,8 @@ export class ProductosComponent implements OnInit {
 
     this.productosService.getProductos().subscribe({
       next: (res: any) => {
-        this.productos = res;        
+        this.productos = res;
+        this.actualizarPaginacion();
         this.loading = false;
         this.cd.detectChanges();
       },
@@ -247,10 +284,11 @@ export class ProductosComponent implements OnInit {
         this.loading = false;
         this.cd.detectChanges();
       },
-    });    
+    });
   }
 
   nuevo() {
+    const alertas: string[] = [];
     this.form = {
       producto_id: null,
       nombre: '',
@@ -259,7 +297,7 @@ export class ProductosComponent implements OnInit {
       unidad_id: null,
       costo: 0.0,
       precio: 0.0,
-      activo: true
+      activo: true,
     };
     this.editando = false;
     this.mostrarForm = true;
@@ -272,28 +310,78 @@ export class ProductosComponent implements OnInit {
   }
 
   guardar() {
+    if (!this.form.nombre) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campo requerido',
+        text: 'El nombre es obligatorio',
+        confirmButtonText: 'Aceptar',
+      });
+      return;
+    }
+
     if (this.editando) {
-      this.productosService.updateProducto(this.form.producto_id, this.form).subscribe(() => {
-        this.cargar();
-        this.cancelar();
+      this.productosService.updateProducto(this.form.producto_id, this.form).subscribe({
+        next: () => {
+          Swal.fire({
+            icon: 'success',
+            title: 'Actualizado',
+            text: 'Producto actualizado correctamente',
+            confirmButtonText: 'Aceptar',
+          });
+
+          this.cargar();
+          this.cancelar();
+        },
+        error: (err) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.error || 'Error al actualizar',
+            confirmButtonText: 'Aceptar',
+          });
+        },
       });
     } else {
-      this.productosService.createProducto(this.form).subscribe(() => {
-        this.cargar();
-        this.cancelar();
+      this.productosService.createProducto(this.form).subscribe({
+        next: () => {
+          Swal.fire({
+            icon: 'success',
+            title: 'Registrado',
+            text: 'Producto creado correctamente',
+            confirmButtonText: 'Aceptar',
+          });
+
+          this.cargar();
+          this.cancelar();
+        },
+        error: (err) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.error || 'Error al registrar',
+            confirmButtonText: 'Aceptar',
+          });
+        },
       });
     }
   }
-
-  eliminar(id: number) {
-    if (!confirm('¿Eliminar producto?')) return;
-
-    this.productosService.deleteProducto(id).subscribe(() => {
-      this.cargar();
-    });
-  }
-
   cancelar() {
     this.mostrarForm = false;
+  }
+
+  actualizarPaginacion() {
+    const inicio = (this.paginaActual - 1) * this.registrosPorPagina;
+    const fin = inicio + this.registrosPorPagina;
+    this.productosPaginados = this.productos.slice(inicio, fin);
+  }
+
+  cambiarPagina(pagina: number) {
+    this.paginaActual = pagina;
+    this.actualizarPaginacion();
+  }
+
+  totalPaginas(): number {
+    return Math.ceil(this.productos.length / this.registrosPorPagina);
   }
 }

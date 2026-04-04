@@ -6,14 +6,13 @@ import { ProductosService } from '../../core/services/productos';
 import { AlmacenesService } from '../../core/services/almacenes';
 import Swal from 'sweetalert2';
 
-
 @Component({
   selector: 'app-inventario',
-  standalone: true,  
+  standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
     <h2 class="text-xl font-bold mb-6">📦 Inventario</h2>
-    
+
     <!-- BOTÓN -->
     <button
       (click)="abrirModal()"
@@ -33,26 +32,36 @@ import Swal from 'sweetalert2';
             <th class="p-3 text-center">Stock Min</th>
             <th class="p-3 text-center">Stock Max</th>
             <th class="p-3 text-center">Stock</th>
-            <th class="p-3 text-center">Config. Stock</th>
+            <th class="p-3 text-center">Kardex</th>
+            <th class="p-3 text-center">Config. Stock</th>            
           </tr>
         </thead>
 
         <tbody>
-          <tr *ngFor="let i of inventario" class="border-t text-center">
+          <tr *ngFor="let i of inventarioPaginados" class="border-t text-center">
             <td class="p-3">{{ i.producto_id }}</td>
             <td class="p-3">{{ i.nombreproducto }}</td>
             <td class="p-3">{{ i.almacennombre }}</td>
             <td class="p-3">{{ i.stock_minimo }}</td>
             <td class="p-3">{{ i.stock_maximo }}</td>
 
-            <td class="p-3 font-bold"
+            <td
+              class="p-3 font-bold"
               [ngClass]="{
                 'text-red-600': i.stock_actual < i.stock_minimo,
-                'text-yellow-600': i.stock_actual > i.stock_maximo
-              }">
+                'text-yellow-600': i.stock_actual > i.stock_maximo,
+              }"
+            >
               {{ i.stock_actual }}
             </td>
-
+            <td>
+              <button
+              (click)="verKardex(i)"
+              class="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 ml-2"
+            >
+              📊
+            </button>
+            </td> 
             <td class="p-3">
               <button
                 (click)="editarConfig(i)"
@@ -60,16 +69,48 @@ import Swal from 'sweetalert2';
               >
                 ⚙️
               </button>
-            </td>
+            </td>                       
           </tr>
         </tbody>
       </table>
+
+      <!-- PAGINACIÓN -->
+      <div class="flex justify-center mt-4 gap-2">
+        <button
+          (click)="cambiarPagina(paginaActual - 1)"
+          [disabled]="paginaActual === 1"
+          class="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
+        >
+          ◀
+        </button>
+
+        <button
+          *ngFor="let p of [].constructor(totalPaginas()); let i = index"
+          (click)="cambiarPagina(i + 1)"
+          [ngClass]="{
+            'bg-blue-600 text-white': paginaActual === i + 1,
+            'bg-gray-200': paginaActual !== i + 1,
+          }"
+          class="px-3 py-1 rounded"
+        >
+          {{ i + 1 }}
+        </button>
+
+        <button
+          (click)="cambiarPagina(paginaActual + 1)"
+          [disabled]="paginaActual === totalPaginas()"
+          class="px-3 py-1 bg-gray-300 rounded disabled:opacity-50"
+        >
+          ▶
+        </button>
+      </div>
     </div>
 
     <!-- MODAL MOVIMIENTO -->
-    <div *ngIf="mostrarModal"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-
+    <div
+      *ngIf="mostrarModal"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+    >
       <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md">
         <div class="flex justify-between mb-4">
           <h3 class="text-lg font-bold">➕ Movimiento</h3>
@@ -79,7 +120,6 @@ import Swal from 'sweetalert2';
         <div *ngIf="cargandoProductos">Cargando productos...</div>
 
         <div *ngIf="!cargandoProductos" class="space-y-3">
-
           <div>
             <label class="text-sm text-gray-600"> Producto </label>
             <select [(ngModel)]="form.producto_id" class="w-full p-2 border rounded">
@@ -120,44 +160,91 @@ import Swal from 'sweetalert2';
             <input [(ngModel)]="form.motivo" class="w-full p-2 border rounded" />
           </div>
 
-          <button 
-            (click)="guardar()" 
+          <button
+            (click)="guardar()"
             [disabled]="guardando"
-            class="w-full bg-blue-600 text-white p-2 rounded disabled:opacity-50">
+            class="w-full bg-blue-600 text-white p-2 rounded disabled:opacity-50"
+          >
             {{ guardando ? 'Guardando...' : 'Guardar' }}
           </button>
-
         </div>
       </div>
     </div>
 
     <!-- MODAL CONFIG -->
-    <div *ngIf="mostrarConfig"
-      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-
+    <div
+      *ngIf="mostrarConfig"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    >
       <div class="bg-white rounded-xl p-6 w-full max-w-md">
         <h3 class="font-bold mb-4">⚙️ Configurar Stock</h3>
 
         <div class="mb-2">
           <label class="text-sm text-gray-600"> Stock mínimo </label>
-          <input [(ngModel)]="config.stock_minimo" type="number"
-            class="w-full p-2 border rounded" />
+          <input
+            [(ngModel)]="config.stock_minimo"
+            type="number"
+            class="w-full p-2 border rounded"
+          />
         </div>
 
         <div class="mb-4">
           <label class="text-sm text-gray-600"> Stock máximo </label>
-          <input [(ngModel)]="config.stock_maximo" type="number"
-            class="w-full p-2 border rounded" />
+          <input
+            [(ngModel)]="config.stock_maximo"
+            type="number"
+            class="w-full p-2 border rounded"
+          />
         </div>
 
         <div class="flex justify-end gap-2">
-          <button (click)="cerrarConfig()" class="px-4 py-2 bg-gray-300 rounded">
-            Cancelar
-          </button>
+          <button (click)="cerrarConfig()" class="px-4 py-2 bg-gray-300 rounded">Cancelar</button>
 
-          <button (click)="guardarConfig()"
-            class="px-4 py-2 bg-blue-600 text-white rounded">
+          <button (click)="guardarConfig()" class="px-4 py-2 bg-blue-600 text-white rounded">
             Guardar
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      *ngIf="mostrarKardex"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    >
+      <div class="bg-white rounded-xl p-6 w-full max-w-4xl">
+        <h3 class="font-bold mb-4">📊 Kardex</h3>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full bg-white">
+            <thead class="bg-gray-100">
+              <tr>
+                <th class="p-2">Fecha</th>
+                <th class="p-2">Tipo</th>
+                <th class="p-2">Ingreso</th>
+                <th class="p-2">Saldo Inicial</th>
+                <th class="p-2">Saldo Final</th>
+                <th class="p-2">Motivo</th>
+                <th class="p-2">Almacén</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr *ngFor="let k of kardex" class="text-center border-t">
+                <td class="p-2">{{ k.fecha | date: 'short' }}</td>
+                <td class="p-2">{{ k.tipo_movimiento }}</td>
+                <td class="p-2">{{ k.cantidad }}</td>
+                <td class="p-2">{{ k.stock_antes }}</td>
+                <td class="p-2 font-bold">{{ k.stock_despues }}</td>
+                <td class="p-2">{{ k.motivo }}</td>
+                <td class="p-2">{{ k.almacen }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex justify-end mt-4">
+          <button (click)="mostrarKardex = false" class="px-4 py-2 bg-gray-300 rounded">
+            Cerrar
           </button>
         </div>
       </div>
@@ -165,13 +252,17 @@ import Swal from 'sweetalert2';
   `,
 })
 export class InventarioComponent implements OnInit {
-
   inventario: any[] = [];
   productos: any[] = [];
   almacenes: any[] = [];
   mostrarModal = false;
   mostrarConfig = false;
   cargandoProductos = false;
+  paginaActual = 1;
+  registrosPorPagina = 6;
+  inventarioPaginados: any[] = [];
+  kardex: any[] = [];
+  mostrarKardex = false;
   guardando = false;
 
   form: any = this.getFormInicial();
@@ -198,6 +289,14 @@ export class InventarioComponent implements OnInit {
     });
   }
 
+  verKardex(i: any) {
+    this.inventarioService.getKardex(i.producto_id, i.almacen_id).subscribe((res: any) => {
+      this.kardex = res;
+      this.mostrarKardex = true;
+      this.cd.detectChanges();
+    });
+  }
+
   getFormInicial() {
     return {
       producto_id: null,
@@ -209,37 +308,36 @@ export class InventarioComponent implements OnInit {
   }
 
   cargar() {
-  this.inventarioService.getInventario().subscribe((res: any) => {
-    this.inventario = res;
+    this.inventarioService.getInventario().subscribe((res: any) => {
+      this.inventario = res;
+      this.actualizarPaginacion();
+      const alertas: string[] = [];
 
-    const alertas: string[] = [];
+      res.forEach((i: any) => {
+        if (i.stock_actual < i.stock_minimo) {
+          alertas.push(`🔴 ${i.nombreproducto} está por debajo del stock mínimo`);
+        }
 
-    res.forEach((i: any) => {
-      if (i.stock_actual < i.stock_minimo) {
-        alertas.push(`🔴 ${i.nombreproducto} está por debajo del stock mínimo`);
-      }
-
-      if (i.stock_actual > i.stock_maximo && i.stock_maximo > 0) {
-        alertas.push(`🟡 ${i.nombreproducto} supera el stock máximo`);
-      }
-    });
-
-    // 🔥 SWEET ALERT
-    if (alertas.length > 0) {
-      Swal.fire({
-        title: '⚠️ Alerta de Inventario',
-        html: alertas.join('<br>'),
-        icon: 'warning',
-        confirmButtonText: 'Entendido',
-        confirmButtonColor: '#2563eb',
-        allowOutsideClick: false
+        if (i.stock_actual > i.stock_maximo && i.stock_maximo > 0) {
+          alertas.push(`🟡 ${i.nombreproducto} supera el stock máximo`);
+        }
       });
-    }
 
-    this.cd.detectChanges();
-  });
-}
+      // 🔥 SWEET ALERT
+      if (alertas.length > 0) {
+        Swal.fire({
+          title: '⚠️ Alerta de Inventario',
+          html: alertas.join('<br>'),
+          icon: 'warning',
+          confirmButtonText: 'Entendido',
+          confirmButtonColor: '#2563eb',
+          allowOutsideClick: false,
+        });
+      }
 
+      this.cd.detectChanges();
+    });
+  }
 
   abrirModal() {
     this.form = this.getFormInicial();
@@ -273,14 +371,13 @@ export class InventarioComponent implements OnInit {
     this.inventarioService.createMovimiento(this.form).subscribe({
       next: (res: any) => {
         if (res.alerta) {
-        Swal.fire({
-          title: '⚠️ Atención',
-          text: res.alerta,
-          icon: 'warning',
-          confirmButtonText: 'Ok'
-        });
-      }
-
+          Swal.fire({
+            title: '⚠️ Atención',
+            text: res.alerta,
+            icon: 'warning',
+            confirmButtonText: 'Ok',
+          });
+        }
 
         this.cargar();
         this.cerrarModal();
@@ -290,11 +387,11 @@ export class InventarioComponent implements OnInit {
           title: 'Error',
           text: err.error,
           icon: 'error',
-          confirmButtonText: 'Ok'
+          confirmButtonText: 'Ok',
         });
 
         this.guardando = false; // 🔥 FIX
-      }
+      },
     });
   }
 
@@ -317,5 +414,20 @@ export class InventarioComponent implements OnInit {
       this.cargar();
       this.cerrarConfig();
     });
+  }
+
+  actualizarPaginacion() {
+    const inicio = (this.paginaActual - 1) * this.registrosPorPagina;
+    const fin = inicio + this.registrosPorPagina;
+    this.inventarioPaginados = this.inventario.slice(inicio, fin);
+  }
+
+  cambiarPagina(pagina: number) {
+    this.paginaActual = pagina;
+    this.actualizarPaginacion();
+  }
+
+  totalPaginas(): number {
+    return Math.ceil(this.inventario.length / this.registrosPorPagina);
   }
 }

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AlmacenesService } from '../../core/services/almacenes';
 import { SucursalesService } from '../../core/services/sucursales';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-almacenes',
@@ -179,18 +180,66 @@ export class AlmacenesComponent implements OnInit {
   }
 
   guardar() {
-    if (this.editando) {
-      this.almacenservice.updateAlmacenes(this.form.almacen_id, this.form).subscribe(() => {
-        this.cargar();
-        this.cancelar();
-      });
-    } else {
-      this.almacenservice.createAlmacenes(this.form).subscribe(() => {
-        this.cargar();
-        this.cancelar();
-      });
-    }
-  }  
+    
+      if (!this.form.nombre) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Campo requerido',
+          text: 'El nombre es obligatorio',
+          confirmButtonText: 'Aceptar'
+        });
+        return;
+      }
+    
+      if (this.editando) {
+        this.almacenservice.updateAlmacenes(this.form.almacen_id, this.form).subscribe({
+          next: () => {
+            Swal.fire({
+              icon: 'success',
+              title: 'Actualizado',
+              text: 'Almacen actualizado correctamente',
+              confirmButtonText: 'Aceptar'
+            });
+    
+            this.cargar();
+            this.cancelar();
+          },
+          error: (err) => {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: err.error || 'Error al actualizar',
+              confirmButtonText: 'Aceptar'
+            });
+          }
+        });
+    
+      } else {
+    
+        this.almacenservice.createAlmacenes(this.form).subscribe({
+          next: () => {
+            Swal.fire({
+              icon: 'success',
+              title: 'Registrado',
+              text: 'Almacen creado correctamente',
+              confirmButtonText: 'Aceptar'
+            });
+    
+            this.cargar();
+            this.cancelar();
+          },
+          error: (err) => {
+            Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: err.error || 'Error al registrar',
+              confirmButtonText: 'Aceptar'
+            });
+          }
+        });
+    
+      } 
+    }  
 
   cancelar() {
     this.mostrarForm = false;

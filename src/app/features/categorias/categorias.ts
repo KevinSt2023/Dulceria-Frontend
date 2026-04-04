@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CategoriasService } from '../../core/services/categorias';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-categorias',
@@ -157,27 +158,66 @@ export class CategoriasComponent implements OnInit {
   }
 
   guardar() {
-    if (this.editando) {
-      this.categoriaservice.updateCategoria(this.form.categoria_id, this.form).subscribe(() => {
-        this.cargar();
-        this.cancelar();
+  
+    if (!this.form.nombre) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campo requerido',
+        text: 'El nombre es obligatorio',
+        confirmButtonText: 'Aceptar'
       });
-    } else {
-      this.categoriaservice.createCategoria(this.form).subscribe(() => {
-        this.cargar();
-        this.cancelar();
-      });
+      return;
     }
+  
+    if (this.editando) {
+      this.categoriaservice.updateCategoria(this.form.categoria_id, this.form).subscribe({
+        next: () => {
+          Swal.fire({
+            icon: 'success',
+            title: 'Actualizado',
+            text: 'Categoria actualizada correctamente',
+            confirmButtonText: 'Aceptar'
+          });
+  
+          this.cargar();
+          this.cancelar();
+        },
+        error: (err) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.error || 'Error al actualizar',
+            confirmButtonText: 'Aceptar'
+          });
+        }
+      });
+  
+    } else {
+  
+      this.categoriaservice.createCategoria(this.form).subscribe({
+        next: () => {
+          Swal.fire({
+            icon: 'success',
+            title: 'Registrado',
+            text: 'Categoria creada correctamente',
+            confirmButtonText: 'Aceptar'
+          });
+  
+          this.cargar();
+          this.cancelar();
+        },
+        error: (err) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.error || 'Error al registrar',
+            confirmButtonText: 'Aceptar'
+          });
+        }
+      });
+  
+    } 
   }
-
-  eliminar(id: number) {
-    if (!confirm('¿Eliminar categoria?')) return;
-
-    this.categoriaservice.deleteCategoria(id).subscribe(() => {
-      this.cargar();
-    });
-  }
-
   cancelar() {
     this.mostrarForm = false;
   }
