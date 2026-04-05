@@ -118,10 +118,10 @@ export class CategoriasComponent implements OnInit {
   constructor(
     private categoriaservice: CategoriasService,
     private cd: ChangeDetectorRef,
-  ) {}
+  ) { }
 
   ngOnInit(): void {
-    this.cargar();    
+    this.cargar();
   }
 
   cargar() {
@@ -142,8 +142,7 @@ export class CategoriasComponent implements OnInit {
   }
 
   nuevo() {
-    this.form = {
-      categoria_id: null,
+    this.form = {      
       nombre: '',
       activo: true
     };
@@ -158,66 +157,66 @@ export class CategoriasComponent implements OnInit {
   }
 
   guardar() {
-  
-    if (!this.form.nombre) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Campo requerido',
-        text: 'El nombre es obligatorio',
-        confirmButtonText: 'Aceptar'
-      });
-      return;
-    }
-  
-    if (this.editando) {
-      this.categoriaservice.updateCategoria(this.form.categoria_id, this.form).subscribe({
-        next: () => {
+      
+        if (!this.form.nombre) {
           Swal.fire({
-            icon: 'success',
-            title: 'Actualizado',
-            text: 'Categoria actualizada correctamente',
+            icon: 'warning',
+            title: 'Campo requerido',
+            text: 'El nombre es obligatorio',
             confirmButtonText: 'Aceptar'
           });
-  
-          this.cargar();
-          this.cancelar();
-        },
-        error: (err) => {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: err.error || 'Error al actualizar',
-            confirmButtonText: 'Aceptar'
-          });
+          return;
         }
-      });
-  
-    } else {
-  
-      this.categoriaservice.createCategoria(this.form).subscribe({
-        next: () => {
-          Swal.fire({
-            icon: 'success',
-            title: 'Registrado',
-            text: 'Categoria creada correctamente',
-            confirmButtonText: 'Aceptar'
+      
+        if (this.editando) {
+          this.categoriaservice.updateCategoria(this.form.categoria_id, this.form).subscribe({
+            next: () => {
+              Swal.fire({
+                icon: 'success',
+                title: 'Actualizado',
+                text: 'Categoría actualizada correctamente',
+                confirmButtonText: 'Aceptar'
+              });
+      
+              this.cargar();
+              this.cancelar();
+            },
+            error: (err) => {
+              Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: err.error || 'Error al actualizar',
+                confirmButtonText: 'Aceptar'
+              });
+            }
           });
-  
-          this.cargar();
-          this.cancelar();
-        },
-        error: (err) => {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: err.error || 'Error al registrar',
-            confirmButtonText: 'Aceptar'
+      
+        } else {
+      
+          this.categoriaservice.createCategoria(this.form).subscribe({
+            next: () => {
+              Swal.fire({
+                icon: 'success',
+                title: 'Registrado',
+                text: 'Categoría registrada satisfactoriamente',
+                confirmButtonText: 'Aceptar'
+              });
+      
+              this.cargar();
+              this.cancelar();
+            },
+            error: (err) => {
+              Swal.fire({
+                icon: 'error',
+                title: 'Error',
+                text: err.error || 'Error al registrar',
+                confirmButtonText: 'Aceptar'
+              });
+            }
           });
-        }
-      });
-  
-    } 
-  }
+      
+        } 
+      }
   cancelar() {
     this.mostrarForm = false;
   }
