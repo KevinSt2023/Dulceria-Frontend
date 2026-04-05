@@ -229,7 +229,7 @@ export class ProductosComponent implements OnInit {
   unidades: any[] = [];
   productos: any[] = [];
   paginaActual = 1;
-  registrosPorPagina = 5;
+  registrosPorPagina = 10;
   productosPaginados: any[] = [];
   loading = true;
 

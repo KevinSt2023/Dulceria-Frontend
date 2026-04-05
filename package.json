@@ -19,6 +19,7 @@
     "@angular/router": "^21.2.0",
     "@tailwindcss/line-clamp": "^0.4.4",
     "rxjs": "~7.8.0",
+    "sweetalert": "^2.1.2",
     "sweetalert2": "^11.26.24",
     "tslib": "^2.3.0"
   },

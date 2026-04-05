@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RolesService } from '../../core/services/roles';
 import { UsuariosService } from '../../core/services/usuarios';
 import { SucursalesService } from '../../core/services/sucursales';
+import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-usuarios',
@@ -191,7 +192,7 @@ export class UsuarioComponent implements OnInit {
     private rolesservice: RolesService,
     private sucursalService: SucursalesService,
     private cd: ChangeDetectorRef,
-  ) {}
+  ) { }
 
   ngOnInit(): void {
     this.cargar();
@@ -257,27 +258,63 @@ export class UsuarioComponent implements OnInit {
   }
 
   guardar() {
+    if (!this.form.nombre) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Campo requerido',
+        text: 'El nombre es obligatorio',
+        confirmButtonText: 'Aceptar',
+      });
+      return;
+    }
+
     if (this.editando) {
-      this.usuarioservice.updateUsuarios(this.form.usuario_id, this.form).subscribe(() => {
-        this.cargar();
-        this.cancelar();
+      this.usuarioservice.updateUsuarios(this.form.usuario_id, this.form).subscribe({
+        next: () => {
+          Swal.fire({
+            icon: 'success',
+            title: 'Actualizado',
+            text: 'Usuario actualizado correctamente',
+            confirmButtonText: 'Aceptar',
+          });
+
+          this.cargar();
+          this.cancelar();
+        },
+        error: (err) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.error || 'Error al actualizar',
+            confirmButtonText: 'Aceptar',
+          });
+        },
       });
     } else {
-      this.usuarioservice.createUsuarios(this.form).subscribe(() => {
-        this.cargar();
-        this.cancelar();
+      this.usuarioservice.createUsuarios(this.form).subscribe({
+        next: () => {
+          Swal.fire({
+            icon: 'success',
+            title: 'Registrado',
+            text: 'Usuario creado correctamente',
+            confirmButtonText: 'Aceptar',
+          });
+
+          this.cargar();
+          this.cancelar();
+        },
+        error: (err) => {
+          Swal.fire({
+            icon: 'error',
+            title: 'Error',
+            text: err.error || 'Error al registrar',
+            confirmButtonText: 'Aceptar',
+          });
+        },
       });
     }
   }
-
-  eliminar(id: number) {
-    if (!confirm('¿Desea inhabilitar el producto?')) return;
-
-    this.usuarioservice.deleteUsuarios(id).subscribe(() => {
-      this.cargar();
-    });
-  }
-
+  
   cancelar() {
     this.mostrarForm = false;
   }
