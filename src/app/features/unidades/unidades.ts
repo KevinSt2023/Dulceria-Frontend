@@ -86,12 +86,7 @@ import Swal from 'sweetalert2';
             <!-- ABREVIATURA -->
             <div>
               <label class="text-sm text-gray-600">Abreviatura</label>
-              <select [(ngModel)]="form.unidad_id" class="w-full p-2 border rounded-lg">
-                <option value="">Seleccione</option>
-                <option *ngFor="let u of unidades" [value]="u.unidad_id">
-                  {{ u.nombre }}
-                </option>
-              </select>
+              <input [(ngModel)]="form.abreviatura" class="w-full p-2 border rounded-lg" />
             </div>
 
             <label class="flex gap-2 items-center mb-4">

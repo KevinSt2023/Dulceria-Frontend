@@ -78,6 +78,12 @@ export const routes: Routes = [
             .then(m => m.InventarioComponent)
       },
       {
+        path: 'clientes',
+        loadComponent: () =>
+          import('./features/clientes/clientes')
+            .then(m => m.CLienteComponent)
+      },
+      {
         path: '',
         loadComponent: () =>
           import('./features/home/home')

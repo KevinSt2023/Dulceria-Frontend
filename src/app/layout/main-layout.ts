@@ -94,6 +94,7 @@ import { CommonModule } from '@angular/common';
 
         <div *ngIf="openMenu === 'conf'" class="submenu">
           <a routerLink="/app/usuarios">Usuarios</a>
+          <a routerLink="/app/clientes">Clientes</a>
           <a routerLink="/app/roles">Roles</a>
           <a routerLink="/app/sucursales">Sucursales</a>
           <a routerLink="/app/almacenes">Almacenes</a>

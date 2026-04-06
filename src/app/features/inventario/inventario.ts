@@ -69,7 +69,8 @@ import Swal from 'sweetalert2';
               >
                 ⚙️
               </button>
-            </td>                       
+            </td>                         
+            
           </tr>
         </tbody>
       </table>
@@ -205,16 +206,46 @@ import Swal from 'sweetalert2';
           </button>
         </div>
       </div>
-    </div>
+    </div>    
+
 
     <div
       *ngIf="mostrarKardex"
       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    >
+    >      
       <div class="bg-white rounded-xl p-6 w-full max-w-4xl">
         <h3 class="font-bold mb-4">📊 Kardex</h3>
+        <p class="text-sm text-gray-500 mb-2">
+          {{ kardex[0]?.producto }} - {{ kardex[0]?.almacen }}
+        </p>
+
 
         <div class="overflow-x-auto">
+          <div class="flex gap-2 mb-4 items-end">
+            <div>
+              <label class="text-sm text-gray-600">Fecha Inicio</label>
+              <input type="date" [(ngModel)]="fechaInicio" class="border p-2 rounded w-full" />
+            </div>           
+
+            <div>
+              <label class="text-sm text-gray-600">Fecha Fin</label>
+              <input type="date" [(ngModel)]="fechaFin" class="border p-2 rounded w-full" />
+            </div>
+
+            <button
+              (click)="filtrarKardex()"
+              class="bg-blue-600 text-white px-3 py-2 rounded"
+            >
+              Filtrar
+            </button>
+            <button
+              (click)="limpiarFiltro()"
+              class="bg-gray-400 text-white px-3 py-2 rounded"
+            >
+              Limpiar
+            </button>
+          </div>
+
           <table class="min-w-full bg-white">
             <thead class="bg-gray-100">
               <tr>
@@ -230,13 +261,22 @@ import Swal from 'sweetalert2';
 
             <tbody>
               <tr *ngFor="let k of kardex" class="text-center border-t">
-                <td class="p-2">{{ k.fecha | date: 'short' }}</td>
-                <td class="p-2">{{ k.tipo_movimiento }}</td>
+                <td class="p-2">{{ k.fecha | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td
+                  class="p-2 font-semibold"
+                  [ngClass]="{
+                    'text-green-600': k.tipo_movimiento === 'ENTRADA',
+                    'text-red-600': k.tipo_movimiento === 'SALIDA',
+                    'text-blue-600': k.tipo_movimiento === 'AJUSTE'
+                  }"
+                >
+                  {{ k.tipo_movimiento }}
+                </td>
                 <td class="p-2">{{ k.cantidad }}</td>
                 <td class="p-2">{{ k.stock_antes }}</td>
                 <td class="p-2 font-bold">{{ k.stock_despues }}</td>
                 <td class="p-2">{{ k.motivo }}</td>
-                <td class="p-2">{{ k.almacen }}</td>
+                <td class="p-2">{{ k.almacen }}</td>                
               </tr>
             </tbody>
           </table>
@@ -252,6 +292,8 @@ import Swal from 'sweetalert2';
   `,
 })
 export class InventarioComponent implements OnInit {
+  productoSeleccionado: number | null = null;
+  almacenSeleccionado: number | null = null;
   inventario: any[] = [];
   productos: any[] = [];
   almacenes: any[] = [];
@@ -264,6 +306,8 @@ export class InventarioComponent implements OnInit {
   kardex: any[] = [];
   mostrarKardex = false;
   guardando = false;
+  fechaInicio: string = '';
+  fechaFin: string = '';
 
   form: any = this.getFormInicial();
 
@@ -279,7 +323,7 @@ export class InventarioComponent implements OnInit {
     private productosService: ProductosService,
     private almacenesService: AlmacenesService,
     private cd: ChangeDetectorRef,
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.cargar();
@@ -290,12 +334,50 @@ export class InventarioComponent implements OnInit {
   }
 
   verKardex(i: any) {
+    this.productoSeleccionado = i.producto_id;
+    this.almacenSeleccionado = i.almacen_id;
+
     this.inventarioService.getKardex(i.producto_id, i.almacen_id).subscribe((res: any) => {
       this.kardex = res;
       this.mostrarKardex = true;
       this.cd.detectChanges();
     });
   }
+
+  filtrarKardex() {
+    if (this.productoSeleccionado == null || this.almacenSeleccionado == null) {
+      alert('Selecciona un producto y almacén primero');
+      return;
+    }
+
+    if (this.fechaInicio && this.fechaFin && this.fechaInicio > this.fechaFin) {
+      alert('La fecha inicio no puede ser mayor que la fecha fin');
+      return;
+    }
+
+    this.inventarioService
+      .getKardexFiltrado(
+        this.productoSeleccionado,
+        this.almacenSeleccionado,
+        this.fechaInicio,
+        this.fechaFin
+      )
+      .subscribe((res: any) => {
+        this.kardex = res;
+        this.cd.detectChanges();
+      });
+  }
+
+  limpiarFiltro() {
+    this.fechaInicio = '';
+    this.fechaFin = '';
+    this.verKardex({
+      producto_id: this.productoSeleccionado,
+      almacen_id: this.almacenSeleccionado
+    });
+  }
+
+
 
   getFormInicial() {
     return {
