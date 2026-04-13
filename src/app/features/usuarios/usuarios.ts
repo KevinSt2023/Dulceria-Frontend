@@ -28,9 +28,9 @@ import Swal from 'sweetalert2';
       <div *ngIf="loading" class="text-gray-500">Cargando...</div>
 
       <!-- TABLA -->
-      <div class="overflow-x-auto" *ngIf="!loading">
-        <table class="min-w-full bg-white rounded-xl overflow-hidden shadow">
-          <thead class="bg-gray-100 text-gray-600 text-sm">
+      <div class="overflow-x-auto mb-6">
+        <table class="min-w-full bg-white rounded-xl shadow">
+          <thead class="bg-gray-100">
             <tr>
               <th class="text-center p-3">ID</th>
               <th class="text-center p-3">Nombre</th>
