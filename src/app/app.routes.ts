@@ -1,106 +1,111 @@
 import { Routes } from '@angular/router';
-import { Login } from './features/auth/login/login';
+import { authGuard, roleGuard } from './core/guards/guard';
 import { MainLayout } from './layout/main-layout';
-import { authGuard } from './core/guards/guard';
+
+// rol_id:
+// 1 = Administrador
+// 2 = Vendedor
+// 3 = Produccion
+// 4 = Cajero
+// 5 = Distribuidor
 
 export const routes: Routes = [
-
-  // LOGIN
-  {
-    path: '',
-    component: Login
-  },
-
-  // ERP PROTEGIDO
   {
     path: 'app',
     component: MainLayout,
-    canActivate: [authGuard],
+    canActivate: [authGuard],   // ← mínimo: estar logueado
     children: [
-      {
-        path: 'productos',
-        loadComponent: () =>
-          import('./features/productos/productos')
-            .then(m => m.ProductosComponent)
-      },
-      {
-        path: 'categorias',
-        loadComponent: () =>
-          import('./features/categorias/categorias')
-            .then(m => m.CategoriasComponent)
-      },
-      {
-        path: 'tipos_productos',
-        loadComponent: () =>
-          import('./features/tipos_productos/tipos_productos')
-            .then(m => m.TiposComponent)
-      },
-      {
-        path: 'unidades',
-        loadComponent: () =>
-          import('./features/unidades/unidades')
-            .then(m => m.UnidadesComponent)
-      },
-      {
-        path: 'usuarios',
-        loadComponent: () =>
-          import('./features/usuarios/usuarios')
-            .then(m => m.UsuarioComponent)
-      },
-      {
-        path: 'roles',
-        loadComponent: () =>
-          import('./features/roles/roles')
-            .then(m => m.RolesComponent)
-      },
-      {
-        path: 'sucursales',
-        loadComponent: () =>
-          import('./features/sucursales/sucursales')
-            .then(m => m.SucursalesComponent)
-      },
+
+      // Dashboard — todos los roles
       {
         path: 'dashboard',
-        loadComponent: () =>
-          import('./features/dashboard/dashboard')
-            .then(m => m.DashboardComponent)
+        loadComponent: () => import('./features/dashboard/dashboard').then(m => m.DashboardComponent)
       },
+
+      // Inventario — solo Administrador
       {
-        path: 'almacenes',
-        loadComponent: () =>
-          import('./features/almacenes/almacenes')
-            .then(m => m.AlmacenesComponent)
+        path: 'productos',
+        canActivate: [roleGuard([1,0])],
+        loadComponent: () => import('./features/productos/productos').then(m => m.ProductosComponent)
       },
       {
         path: 'inventario',
-        loadComponent: () =>
-          import('./features/inventario/inventario')
-            .then(m => m.InventarioComponent)
+        canActivate: [roleGuard([1,0])],
+        loadComponent: () => import('./features/inventario/inventario').then(m => m.InventarioComponent)
+      },
+      {
+        path: 'categorias',
+        canActivate: [roleGuard([1,0])],
+        loadComponent: () => import('./features/categorias/categorias').then(m => m.CategoriasComponent)
+      },
+      {
+        path: 'tipos_productos',
+        canActivate: [roleGuard([1,0])],
+        loadComponent: () => import('./features/tipos_productos/tipos_productos').then(m => m.TiposComponent)
+      },
+      {
+        path: 'unidades',
+        canActivate: [roleGuard([1,0])],
+        loadComponent: () => import('./features/unidades/unidades').then(m => m.UnidadesComponent)
+      },
+      {
+        path: 'roles',
+        canActivate: [roleGuard([0])],
+        loadComponent: () => import('./features/roles/roles').then(m => m.RolesComponent)
+      },
+
+      // Ventas — Administrador y Cajero
+      //{
+        //path: 'pos',
+       // canActivate: [roleGuard([1, 4])],
+        //loadComponent: () => import('./features/ventas/pos.component').then(m => m.PosComponent)
+      //},
+      //{
+       // path: 'comprobantes',
+       // canActivate: [roleGuard([1, 4])],
+       // loadComponent: () => import('./features/ventas/comprobantes.component').then(m => m.ComprobantesComponent)
+      //},
+
+      // Pedidos — Administrador y Vendedor
+      {
+        path: 'pedidos',
+        canActivate: [roleGuard([1, 2,0])],
+        loadComponent: () => import('./features/pedidos/pedidos').then(m => m.PedidosComponent)
+      },
+
+      // Seguimiento — Administrador, Produccion y Distribuidor
+      //{
+      //  path: 'seguimiento',
+       // canActivate: [roleGuard([1, 3, 5])],
+       // loadComponent: () => import('./features/pedidos/seguimiento.component').then(m => m.SeguimientoComponent)
+    //  },
+
+      // Configuración — solo Administrador
+      {
+        path: 'usuarios',
+        canActivate: [roleGuard([1,0])],
+        loadComponent: () => import('./features/usuarios/usuarios').then(m => m.UsuarioComponent)
+      },
+      {
+        path: 'sucursales',
+        canActivate: [roleGuard([0])],
+        loadComponent: () => import('./features/sucursales/sucursales').then(m => m.SucursalesComponent)
+      },
+      {
+        path: 'almacenes',
+        canActivate: [roleGuard([1,0])],
+        loadComponent: () => import('./features/almacenes/almacenes').then(m => m.AlmacenesComponent)
       },
       {
         path: 'clientes',
-        loadComponent: () =>
-          import('./features/clientes/clientes')
-            .then(m => m.CLienteComponent)
+        canActivate: [roleGuard([1,0])],
+        loadComponent: () => import('./features/clientes/clientes').then(m => m.CLienteComponent)
       },
-      {
-        path: 'pedidos',
-        loadComponent: () =>
-          import('./features/pedidos/pedidos')
-            .then(m => m.PedidosComponent)
-      },
-      {
-        path: '',
-        loadComponent: () =>
-          import('./features/home/home')
-          .then(m => m.HomeComponent)
-      }      
+
+      { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]
   },
 
-  // fallback
-  {
-    path: '**',
-    redirectTo: ''
-  }
+  { path: '', loadComponent: () => import('./features/auth/login/login').then(m => m.Login) },
+  { path: '**', redirectTo: '' }
 ];
