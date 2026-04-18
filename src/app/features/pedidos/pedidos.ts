@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import { PedidosService } from '../../core/services/pedidos';
 import { ClientesService } from '../../core/services/clientes';
 import { ProductosService } from '../../core/services/productos';
+import { AuthService } from '../../core/auth/auth';
 
 @Component({
   selector: 'app-pedidos',
@@ -78,11 +79,11 @@ import { ProductosService } from '../../core/services/productos';
               </button>
 
               <!-- Avanzar estado: oculto si es final -->
-              <button *ngIf="!esFinal(p.estado)"
+              <button *ngIf="puedeAvanzar(p)"
                       (click)="cambiarEstado(p)"
                       title="Avanzar estado"
                       class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm">
-                🔄
+                      {{ getTextoAccion(p.estado) }}
               </button>
 
               <!-- Cancelar: oculto si ya es final -->
@@ -262,6 +263,7 @@ export class PedidosComponent implements OnInit {
     private pedidosService:  PedidosService,
     private clientesService: ClientesService,
     private productosService: ProductosService,
+    private authService: AuthService,
     private cd: ChangeDetectorRef
   ) {}
 
@@ -459,33 +461,43 @@ export class PedidosComponent implements OnInit {
 
   // ─────────────────────────────────────────────
   cambiarEstado(p: any) {
-    const siguiente = this.flujoEstados[p.estado];
 
-    if (!siguiente) {
-      Swal.fire('Aviso', 'Este pedido no puede avanzar de estado', 'info');
-      return;
-    }
+  const rol = this.authService.getRolId();
 
-    const etiquetas: Record<number, string> = {
-      2: 'CONFIRMADO', 3: 'EN PREPARACIÓN', 4: 'LISTO', 5: 'ENTREGADO'
-    };
+  let siguiente = null;
 
-    Swal.fire({
-      title: '¿Avanzar estado?',
-      text: `El pedido pasará a: ${etiquetas[siguiente]}`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, avanzar',
-      cancelButtonText: 'No'
-    }).then(r => {
-      if (!r.isConfirmed) return;
-
-      this.pedidosService.cambiarEstado(p.pedido_id, siguiente).subscribe({
-        next: () => this.cargar(),
-        error: (err) => Swal.fire('Error', err?.error || 'No se pudo cambiar el estado', 'error')
-      });
-    });
+  if (rol === 3 && p.estado === 'PENDIENTE') {
+    siguiente = 2; // CONFIRMADO
   }
+
+  else if (rol === 3 && p.estado === 'CONFIRMADO') {
+    siguiente = 3; // EN_PREPARACION
+  }
+
+  else if (rol === 4 && p.estado === 'EN_PREPARACION') {
+    siguiente = 4; // LISTO
+  }
+
+  else if ((rol === 4 || rol === 5) && p.estado === 'LISTO') {
+    siguiente = 5; // ENTREGADO
+  }
+
+  else if (this.authService.isAdminOrSuper()) {
+    siguiente = this.flujoEstados[p.estado];
+  }
+
+  if (!siguiente) {
+    Swal.fire('No permitido', 'No puedes cambiar este estado', 'warning');
+    return;
+  }
+
+  this.pedidosService.cambiarEstado(p.pedido_id, siguiente)
+    .subscribe({
+      next: () => this.cargar(),
+      error: (err) => Swal.fire('Error', err.error, 'error')
+    });
+}
+
 
   cancelarPedido(p: any) {
     Swal.fire({
@@ -521,5 +533,19 @@ export class PedidosComponent implements OnInit {
       'CANCELADO':      'bg-red-100 text-red-700'
     };
     return clases[e] ?? 'bg-gray-100 text-gray-600';
+  }
+
+  puedeAvanzar(p:any){
+  return !this.esFinal(p.estado);
+  }
+
+  getTextoAccion(estado:string){
+    const map:any = {
+      'PENDIENTE': 'Confirmar',
+      'CONFIRMADO': 'Preparar',
+      'EN_PREPARACION': 'Marcar listo',
+      'LISTO': 'Entregar'
+    };
+    return map[estado] || 'Avanzar';
   }
 }
