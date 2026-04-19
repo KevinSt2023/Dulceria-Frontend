@@ -276,8 +276,9 @@ export class SeguimientoComponent implements OnInit {
   }[] = [];
 
   private readonly siguienteEstado: Record<string, number> = {
-    'PENDIENTE':  2,
-    'CONFIRMADO': 3
+  'PENDIENTE':      2,  // → CONFIRMADO
+  'CONFIRMADO':     3,  // → EN_PREPARACION
+  'EN_PREPARACION': 4,  // → LISTO
   };
 
   constructor(
@@ -381,55 +382,63 @@ export class SeguimientoComponent implements OnInit {
 
   // ─────────────────────────────────────────────
   accionarPedido(p: any) {
-    const siguiente = this.siguienteEstado[p.estado];
-    if (!siguiente) return;
+  const siguiente = this.siguienteEstado[p.estado];
+  if (!siguiente) return;
 
-    const textos: Record<string, { titulo: string; texto: string; btn: string }> = {
-      'PENDIENTE': {
-        titulo: '¿Confirmar pedido?',
-        texto:  `Pedido #${p.pedido_id} de ${p.cliente}`,
-        btn:    'Sí, confirmar'
+  const textos: Record<string, { titulo: string; texto: string; btn: string }> = {
+    'PENDIENTE': {
+      titulo: '¿Confirmar pedido?',
+      texto:  `Pedido #${p.pedido_id} de ${p.cliente}`,
+      btn:    'Sí, confirmar'
+    },
+    'CONFIRMADO': {
+      titulo: '¿Iniciar preparación?',
+      texto:  `Pedido #${p.pedido_id} — pasará a EN PREPARACIÓN`,
+      btn:    'Sí, iniciar'
+    },
+    'EN_PREPARACION': {                          // ← faltaba este
+      titulo: '¿Marcar como listo?',
+      texto:  `Pedido #${p.pedido_id} — pasará a LISTO para entrega`,
+      btn:    'Sí, marcar listo'
+    }
+  };
+
+  const conf = textos[p.estado];
+  if (!conf) return;                             // ← guard por si acaso
+
+  Swal.fire({
+    title:             conf.titulo,
+    text:              conf.texto,
+    icon:              'question',
+    showCancelButton:  true,
+    confirmButtonText: conf.btn,
+    cancelButtonText:  'Cancelar'
+  }).then(r => {
+    if (!r.isConfirmed) return;
+
+    this.procesando = p.pedido_id;
+
+    this.seguimientoService.cambiarEstado(p.pedido_id, siguiente).subscribe({
+      next: () => {
+        this.procesando = null;
+        this.cargar();
       },
-      'CONFIRMADO': {
-        titulo: '¿Iniciar preparación?',
-        texto:  `Pedido #${p.pedido_id} — pasará a EN PREPARACIÓN`,
-        btn:    'Sí, iniciar'
+      error: (err) => {
+        this.procesando = null;
+        Swal.fire('Error', err?.error || 'No se pudo cambiar el estado', 'error');
       }
-    };
-
-    const conf = textos[p.estado];
-
-    Swal.fire({
-      title:             conf.titulo,
-      text:              conf.texto,
-      icon:              'question',
-      showCancelButton:  true,
-      confirmButtonText: conf.btn,
-      cancelButtonText:  'Cancelar'
-    }).then(r => {
-      if (!r.isConfirmed) return;
-
-      this.procesando = p.pedido_id;
-
-      this.seguimientoService.cambiarEstado(p.pedido_id, siguiente).subscribe({
-        next: () => {
-          this.procesando = null;
-          this.cargar();
-        },
-        error: (err) => {
-          this.procesando = null;
-          Swal.fire('Error', err?.error || 'No se pudo cambiar el estado', 'error');
-        }
-      });
     });
-  }
+  });
+}
 
   // ─────────────────────────────────────────────
   puedeAccionar(p: any): boolean {
     const rol = this.authService.getRolId();
     if (rol === 0 || rol === 1) return true;
-    if (rol !== 3) return false;
-    return p.estado === 'PENDIENTE' || p.estado === 'CONFIRMADO';
+    if (rol === 3) return p.estado === 'PENDIENTE'
+                      || p.estado === 'CONFIRMADO'
+                      || p.estado === 'EN_PREPARACION';
+    return false;
   }
 
   puedeRegistrarProduccion(): boolean {
@@ -442,13 +451,21 @@ export class SeguimientoComponent implements OnInit {
   }
 
   getTextoBoton(estado: string): string {
-    return estado === 'PENDIENTE' ? 'Confirmar pedido' : 'Iniciar preparación';
+    const map: Record<string, string> = {
+      'PENDIENTE':      'Confirmar pedido',
+      'CONFIRMADO':     'Iniciar preparación',
+      'EN_PREPARACION': 'Marcar listo'
+    };
+    return map[estado] ?? 'Avanzar';
   }
 
   getBotonClase(estado: string): string {
-    return estado === 'PENDIENTE'
-      ? 'bg-blue-600 hover:bg-blue-700 text-white'
-      : 'bg-purple-600 hover:bg-purple-700 text-white';
+    const m: Record<string, string> = {
+      'PENDIENTE':      'bg-blue-600 hover:bg-blue-700 text-white',
+      'CONFIRMADO':     'bg-purple-600 hover:bg-purple-700 text-white',
+      'EN_PREPARACION': 'bg-green-600 hover:bg-green-700 text-white'
+    };
+    return m[estado] ?? 'bg-gray-600 text-white';
   }
 
   getBadgeEstado(estado: string): string {

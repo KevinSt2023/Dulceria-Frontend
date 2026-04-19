@@ -1,143 +1,219 @@
 import { Component, OnInit } from '@angular/core';
-import { RouterOutlet, RouterLink } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../core/auth/auth';
 
 @Component({
   selector: 'app-main-layout',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, CommonModule],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, CommonModule],
   template: `
-<div class="flex h-screen bg-gray-100">
+<div class="flex h-screen bg-slate-50 overflow-hidden">
 
-  <!-- SIDEBAR -->
-  <aside class="w-64 bg-slate-900 text-white flex flex-col shadow-lg">
+  <!-- OVERLAY móvil -->
+  <div *ngIf="sidebarOpen"
+       (click)="sidebarOpen = false"
+       class="fixed inset-0 bg-black/40 z-20 lg:hidden">
+  </div>
 
-    <div class="p-6 text-2xl font-bold border-b border-slate-700 tracking-wide">
-      🍰 DulcesERP
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="fixed lg:static inset-y-0 left-0 z-30
+                flex flex-col w-60 bg-slate-900
+                transition-transform duration-300"
+         [ngClass]="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'">
+
+    <!-- Header sidebar — solo logo y nombre -->
+    <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-800">
+      <img src="assets/images/sophitech.jpeg"
+           alt="SophiTech"
+           class="h-10 w-auto rounded"
+           onerror="this.style.display='none'"/>
+      <div>
+        <!-- era text-sm → text-base -->
+        <p class="text-white font-bold text-xm">
+          Sophi<span class="text-cyan-400">Tech</span>
+        </p>
+        <p class="text-slate-500 text-sm">ERP · SaaS</p>       
+   
+      </div>
     </div>
 
-    <nav class="flex-1 p-4 space-y-6 text-sm overflow-y-auto">
+    <!-- NAV -->
+    <nav class="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
 
-      <!-- DASHBOARD — todos -->
-      <div>
-        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">
-          Dashboard
-        </div>
+      <!-- PRINCIPAL -->
+      <div class="pt-2">
+        <p class="section-label">Principal</p>
         <a routerLink="/app/dashboard"
-           class="block p-2 rounded hover:bg-slate-700">
-          📊 Dashboard
+          routerLinkActive="bg-slate-800 text-white"
+          class="nav-item">
+          <img src="assets/icon/reporte.png"
+              class="w-5 h-5"
+              style="filter: brightness(0) invert(1) opacity(0.6)"/>
+          Dashboard
         </a>
       </div>
+      
+      <!-- INVENTARIO -->
+      <div *ngIf="isAdminOrSuper()" class="pt-4">
+        <p class="section-label">Inventario</p>
 
-      <!-- INVENTARIO — SuperAdmin y Admin -->
-      <div *ngIf="isAdminOrSuper()">
-        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">
-          Inventario
-        </div>
-        <button (click)="toggle('inv')" class="menu-btn">📦 Gestión</button>
-        <div *ngIf="openMenu === 'inv'" class="submenu">
-          <a routerLink="/app/productos">Productos</a>
-          <a routerLink="/app/inventario">Inventario</a>
-          <a routerLink="/app/categorias">Categorías</a>
-          <a routerLink="/app/tipos_productos">Tipos</a>
-          <a routerLink="/app/unidades">Unidades</a>
-          <a *ngIf="isAdmin()" routerLink="/app/catalogo-sede">
-            Mi catálogo
-          </a>
+        <button (click)="toggle('inv')" class="nav-item w-full justify-between">
+          <span class="flex items-center gap-2">
+            <img src="assets/icon/inventario.png"
+              class="w-5 h-5"
+              style="filter: brightness(0) invert(1) opacity(0.6)"/>
+            <span></span> Gestión
+          </span>
+          <span class="text-xs text-slate-600"
+                [ngClass]="openMenu === 'inv' ? 'rotate-90' : ''"
+                style="transition: transform 0.2s">▶</span>
+        </button>
+        <div *ngIf="openMenu === 'inv'" class="pl-4 space-y-0.5 mt-0.5">
+          <a routerLink="/app/productos"      routerLinkActive="text-cyan-400" class="sub-item">Productos</a>
+          <a routerLink="/app/inventario"     routerLinkActive="text-cyan-400" class="sub-item">Inventario</a>
+          <a routerLink="/app/categorias"     routerLinkActive="text-cyan-400" class="sub-item">Categorías</a>
+          <a routerLink="/app/tipos_productos" routerLinkActive="text-cyan-400" class="sub-item">Tipos</a>
+          <a routerLink="/app/unidades"       routerLinkActive="text-cyan-400" class="sub-item">Unidades</a>
+          <a *ngIf="isAdmin()"
+             routerLink="/app/catalogo-sede"  routerLinkActive="text-cyan-400" class="sub-item">Mi catálogo</a>
         </div>
       </div>
 
-      <!-- VENTAS — SuperAdmin, Admin y Cajero -->
-      <div *ngIf="isAdminOrSuper() || isCajero()">
-        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">
-          Ventas
-        </div>
-        <button (click)="toggle('ventas')" class="menu-btn">💰 Facturación</button>
-        <div *ngIf="openMenu === 'ventas'" class="submenu">
-          <a routerLink="/app/pos">Punto de Venta</a>
-          <a routerLink="/app/comprobantes">Comprobantes</a>
-          <a routerLink="/app/historial">Historial</a>
+      <!-- VENTAS -->
+      <div *ngIf="isAdminOrSuper() || isCajero()" class="pt-4">
+        <p class="section-label">Ventas</p>
+
+        <button (click)="toggle('ventas')" class="nav-item w-full justify-between">
+          <span class="flex items-center gap-2">
+            <img src="assets/icon/venta.png"
+              class="w-5 h-5"
+              style="filter: brightness(0) invert(1) opacity(0.6)"/>
+            <span></span> Facturación
+          </span>
+          <span class="text-xs text-slate-600"
+                [ngClass]="openMenu === 'ventas' ? 'rotate-90' : ''"
+                style="transition: transform 0.2s">▶</span>
+        </button>
+        <div *ngIf="openMenu === 'ventas'" class="pl-4 space-y-0.5 mt-0.5">
+          <a routerLink="/app/pos"          routerLinkActive="text-cyan-400" class="sub-item">Punto de Venta</a>
+          <a routerLink="/app/comprobantes" routerLinkActive="text-cyan-400" class="sub-item">Comprobantes</a>
+          <a routerLink="/app/historial"    routerLinkActive="text-cyan-400" class="sub-item">Historial</a>
         </div>
       </div>
 
       <!-- PEDIDOS -->
-      <div *ngIf="isAdminOrSuper() || isVendedor() || isProduccion() || isDistribuidor()">
-        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">
-          Pedidos
-        </div>
-        <button (click)="toggle('pedidos')" class="menu-btn">🛵 Órdenes</button>
-        <div *ngIf="openMenu === 'pedidos'" class="submenu">
+      <div *ngIf="isAdminOrSuper() || isVendedor() || isProduccion() || isDistribuidor()"
+           class="pt-4">
+        <p class="section-label">Pedidos</p>
+
+        <button (click)="toggle('pedidos')" class="nav-item w-full justify-between">
+          <span class="flex items-center gap-2">
+            <img src="assets/icon/pedido.png"
+              class="w-5 h-5"
+              style="filter: brightness(0) invert(1) opacity(0.6)"/>
+            <span></span> Órdenes
+          </span>
+          <span class="text-xs text-slate-600"
+                [ngClass]="openMenu === 'pedidos' ? 'rotate-90' : ''"
+                style="transition: transform 0.2s">▶</span>
+        </button>
+        <div *ngIf="openMenu === 'pedidos'" class="pl-4 space-y-0.5 mt-0.5">
           <a *ngIf="isAdminOrSuper() || isVendedor()"
-             routerLink="/app/pedidos">Pedidos</a>
+             routerLink="/app/pedidos"      routerLinkActive="text-cyan-400" class="sub-item">Pedidos</a>
           <a *ngIf="isAdminOrSuper() || isProduccion() || isDistribuidor()"
-             routerLink="/app/seguimiento">Seguimiento</a>
+             routerLink="/app/seguimiento"  routerLinkActive="text-cyan-400" class="sub-item">Seguimiento</a>
+          <a *ngIf="isAdminOrSuper() || isDistribuidor()"
+             routerLink="/app/distribucion" routerLinkActive="text-cyan-400" class="sub-item">Distribución</a>
         </div>
       </div>
 
-      <!-- CONFIGURACIÓN — SuperAdmin y Admin -->
-      <div *ngIf="isAdminOrSuper()">
-        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">
-          Configuración
-        </div>
-        <button (click)="toggle('conf')" class="menu-btn">⚙️ Sistema</button>
-        <div *ngIf="openMenu === 'conf'" class="submenu">
-          <a routerLink="/app/usuarios">Usuarios</a>
-          <a routerLink="/app/clientes">Clientes</a>
-          <a routerLink="/app/roles">Roles</a>
-          <a routerLink="/app/sucursales">Sucursales</a>
-          <a routerLink="/app/almacenes">Almacenes</a>
+      <!-- CONFIGURACIÓN -->
+      <div *ngIf="isAdminOrSuper()" class="pt-4">
+        <p class="section-label">Configuración</p>
+
+        <button (click)="toggle('conf')" class="nav-item w-full justify-between">
+          <span class="flex items-center gap-2">
+            <img src="assets/icon/config.png"
+              class="w-5 h-5"
+              style="filter: brightness(0) invert(1) opacity(0.6)"/>
+            <span></span> Sistema
+          </span>
+          <span class="text-xs text-slate-600"
+                [ngClass]="openMenu === 'conf' ? 'rotate-90' : ''"
+                style="transition: transform 0.2s">▶</span>
+        </button>
+        <div *ngIf="openMenu === 'conf'" class="pl-4 space-y-0.5 mt-0.5">
+          <a routerLink="/app/usuarios"   routerLinkActive="text-cyan-400" class="sub-item">Usuarios</a>
+          <a routerLink="/app/clientes"   routerLinkActive="text-cyan-400" class="sub-item">Clientes</a>
+          <a routerLink="/app/roles"      routerLinkActive="text-cyan-400" class="sub-item">Roles</a>
+          <a routerLink="/app/sucursales" routerLinkActive="text-cyan-400" class="sub-item">Sucursales</a>
+          <a routerLink="/app/almacenes"  routerLinkActive="text-cyan-400" class="sub-item">Almacenes</a>
+          <a routerLink="/app/configuracion-pago" routerLinkActive="text-cyan-400" class="sub-item">Métodos de pago</a>
         </div>
       </div>
 
     </nav>
 
-    <!-- Pie del sidebar -->
-    <div class="p-4 border-t border-slate-700 space-y-2">
-
-      <!-- Sucursal activa -->
-      <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-800">
-        <span class="text-slate-400 text-xs">🏪</span>
-        <span class="text-xs text-slate-300 truncate">
-          {{ sucursalNombre }}
-        </span>
-      </div>
-
-      <!-- Rol badge -->
-      <div class="flex justify-between items-center">
-        <span class="px-2 py-1 rounded bg-slate-700
-                     text-gray-300 text-xs font-medium">
-          {{ rolNombre }}
-        </span>
-        <span class="text-gray-500 text-xs">v1.0 ERP</span>
-      </div>
-
+    <!-- Footer sidebar — solo versión -->
+    <div class="px-5 py-3 border-t border-slate-800">
+      <p class="text-slate-600 text-xs">v1.0 SophiTech ERP</p>
     </div>
 
   </aside>
 
-  <!-- MAIN -->
-  <div class="flex-1 flex flex-col overflow-hidden">
+  <!-- ══ CONTENIDO ══ -->
+  <div class="flex-1 flex flex-col overflow-hidden min-w-0">
 
-    <header class="bg-white shadow-sm px-6 py-4
-                   flex justify-between items-center">
-      <h1 class="text-lg font-semibold text-gray-700">Panel de Control</h1>
+    <!-- TOPBAR -->
+    <header class="bg-white border-b border-gray-100 px-4 lg:px-6 py-3
+                   flex items-center gap-4">
 
-      <div class="flex items-center gap-4">
-        <div class="text-right">
-          <p class="text-gray-700 font-medium text-sm">{{ email }}</p>
-          <p class="text-gray-400 text-xs">{{ sucursalNombre }}</p>
+      <!-- Hamburger móvil -->
+      <button (click)="sidebarOpen = true"
+              class="lg:hidden p-2 rounded-lg text-gray-500 hover:bg-gray-100">
+        ☰
+      </button>
+
+      <!-- Sede -->
+      <div class="flex items-center gap-1.5 px-3 py-1.5
+                  bg-slate-50 border border-slate-200 rounded-full">
+        <span class="text-xs">🏪</span>
+        <span class="text-xs text-slate-600 font-medium max-w-[160px] truncate">
+          {{ sucursalNombre }}
+        </span>
+      </div>
+
+      <!-- Spacer -->
+      <div class="flex-1"></div>
+
+      <!-- Avatar + email + rol + salir -->
+      <div class="flex items-center gap-3">
+
+        <div class="text-right hidden sm:block">
+          <p class="text-sm font-medium text-gray-700">{{ email }}</p>
+          <p class="text-xs text-gray-400">{{ rolNombre }}</p>
         </div>
+
+        <div class="w-8 h-8 rounded-full bg-cyan-600 flex items-center
+                    justify-center text-white text-sm font-bold flex-shrink-0">
+          {{ inicialNombre }}
+        </div>
+
         <button (click)="logout()"
-                class="bg-red-500 text-white px-4 py-1 rounded
-                       hover:bg-red-600 transition text-sm">
+                class="flex items-center gap-1.5 px-3 py-1.5
+                       text-red-500 hover:bg-red-50 rounded-lg
+                       transition-colors text-sm font-medium">
           Salir
         </button>
+
       </div>
     </header>
 
-    <main class="p-6 flex-1 overflow-auto">
-      <div class="bg-white rounded-xl shadow p-6 min-h-full">
+    <!-- PÁGINA -->
+    <main class="flex-1 overflow-auto p-4 lg:p-6">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100
+                  p-4 lg:p-6 min-h-full">
         <router-outlet></router-outlet>
       </div>
     </main>
@@ -147,52 +223,83 @@ import { AuthService } from '../core/auth/auth';
 </div>
   `,
   styles: [`
-.menu-btn {
-  width: 100%;
-  text-align: left;
-  padding: 8px;
-  border-radius: 6px;
-  transition: 0.2s;
-}
-.menu-btn:hover { background: #334155; }
-.submenu a {
-  display: block;
-  padding: 6px 10px;
-  border-radius: 6px;
-  transition: 0.2s;
-  color: #cbd5e1;
-}
-.submenu a:hover { background: #334155; color: white; }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border-radius: 8px;
+    font-size: 13px;        /* ← era 13px */
+    color: white;
+    transition: all 0.15s;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    text-align: left;
+  }
+  .nav-item:hover {
+    background: #1e293b;
+    color: white;
+  }
+  .section-label {
+    font-size: 13px;        /* ← era 10px */
+    color: white;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0 10px;
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  .sub-item {
+    display: block;
+    padding: 7px 10px;      /* ← era 6px */
+    border-radius: 6px;
+    font-size: 13px;        /* ← era 12px */
+    color: white;
+    transition: all 0.15s;
+  }
+  .sub-item:hover {
+    background: #1e293b;
+    color: white;
+  }
+
+  .nav-item.active img,
+  a.bg-slate-800 img {
+    filter: brightness(0) invert(1) opacity(1);
+  }  
   `]
 })
 export class MainLayout implements OnInit {
 
   openMenu:      string | null = null;
+  sidebarOpen    = false;
   rolNombre      = '';
   email          = '';
   sucursalId     = 0;
   sucursalNombre = '';
+  inicialNombre  = '';
 
   constructor(private auth: AuthService) {}
 
   ngOnInit() {
-    const claims       = this.auth.getClaims();
-    this.rolNombre      = this.auth.getRolNombre();
-    this.sucursalNombre = this.auth.getSucursalNombre();
-    this.email          = claims?.email      ?? '';
-    this.sucursalId     = claims?.sucursal_id ?? 0;
+    const claims        = this.auth.getClaims();
+    this.rolNombre       = this.auth.getRolNombre();
+    this.sucursalNombre  = this.auth.getSucursalNombre();
+    this.email           = claims?.email      ?? '';
+    this.sucursalId      = claims?.sucursal_id ?? 0;
+    this.inicialNombre   = this.email.charAt(0).toUpperCase();
   }
 
   toggle(menu: string) {
     this.openMenu = this.openMenu === menu ? null : menu;
   }
 
-  logout()         { this.auth.logout(); }
-  isAdmin():  boolean { return this.auth.isAdmin(); }
-  isSuperAdmin():  boolean { return this.auth.isSuperAdmin(); }
-  isAdminOrSuper():boolean { return this.auth.isAdminOrSuper(); }
-  isVendedor():    boolean { return this.auth.isVendedor(); }
-  isProduccion():  boolean { return this.auth.isProduccion(); }
-  isCajero():      boolean { return this.auth.isCajero(); }
-  isDistribuidor():boolean { return this.auth.isDistribuidor(); }
+  logout()          { this.auth.logout(); }
+  isAdmin():        boolean { return this.auth.isAdmin(); }
+  isSuperAdmin():   boolean { return this.auth.isSuperAdmin(); }
+  isAdminOrSuper(): boolean { return this.auth.isAdminOrSuper(); }
+  isVendedor():     boolean { return this.auth.isVendedor(); }
+  isProduccion():   boolean { return this.auth.isProduccion(); }
+  isCajero():       boolean { return this.auth.isCajero(); }
+  isDistribuidor(): boolean { return this.auth.isDistribuidor(); }
 }

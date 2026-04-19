@@ -116,6 +116,20 @@ export const routes: Routes = [
             .then(m => m.ProductoSucursalComponent)
       },
 
+      {
+        path: 'distribucion',
+        loadComponent: () =>
+          import('./features/distribucion/distribucion')
+            .then(m => m.DistribucionComponent)
+      },
+
+      {
+        path: 'configuracion-pago',
+        loadComponent: () =>
+          import('./features/configuracion-pago/configuracion-pago')
+            .then(m => m.ConfiguracionPagoComponent)
+      },
+
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]
   },

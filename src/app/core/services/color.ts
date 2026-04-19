@@ -6,12 +6,15 @@ import { Injectable } from '@angular/core';
 export class ColorService {
 
   private readonly SUCURSAL_COLORES = [
-    'bg-blue-100 text-blue-700',
-    'bg-purple-100 text-purple-700',
-    'bg-teal-100 text-teal-700',
-    'bg-orange-100 text-orange-700',
-    'bg-pink-100 text-pink-700'
-  ];
+  'bg-sky-400 text-white',        // azul cielo
+  'bg-blue-500 text-white',       // azul estándar
+  'bg-cyan-500 text-white',       // cyan SophiTech
+  'bg-indigo-500 text-white',     // índigo
+  'bg-blue-600 text-white',       // azul medio oscuro
+  'bg-sky-600 text-white',        // cielo oscuro
+  'bg-cyan-600 text-white',       // cyan oscuro
+  'bg-indigo-700 text-white',     // índigo profundo
+];
 
   // Color determinista por sucursal_id — siempre el mismo
   getSucursalClasePorId(sucursalId: number): string {
