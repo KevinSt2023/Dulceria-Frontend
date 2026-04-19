@@ -5,7 +5,10 @@ import Swal from 'sweetalert2';
 import { PedidosService } from '../../core/services/pedidos';
 import { ClientesService } from '../../core/services/clientes';
 import { ProductosService } from '../../core/services/productos';
+import { SucursalesService } from '../../core/services/sucursales';
+import { UbigeoService } from '../../core/services/ubigeos';
 import { AuthService } from '../../core/auth/auth';
+import { ColorService } from '../../core/services/color';
 
 @Component({
   selector: 'app-pedidos',
@@ -17,19 +20,22 @@ import { AuthService } from '../../core/auth/auth';
   <!-- HEADER -->
   <div class="flex justify-between items-center mb-6">
     <h2 class="text-xl font-bold text-gray-700">Pedidos</h2>
-
     <div class="flex gap-2">
-      <button (click)="nuevoPedido()" class="bg-green-600 text-white px-4 py-2 rounded-lg">
+      <button (click)="nuevoPedido()"
+              class="bg-green-600 text-white px-4 py-2 rounded-lg">
         + Nuevo Pedido
       </button>
-      <button (click)="cargar()" class="bg-blue-600 text-white px-4 py-2 rounded-lg">
+      <button (click)="cargar()"
+              class="bg-blue-600 text-white px-4 py-2 rounded-lg">
         🔄 Refrescar
       </button>
     </div>
   </div>
 
   <!-- LOADING -->
-  <div *ngIf="loading" class="text-center text-gray-400 py-10">Cargando pedidos...</div>
+  <div *ngIf="loading" class="text-center text-gray-400 py-10">
+    Cargando pedidos...
+  </div>
 
   <!-- TABLA -->
   <div *ngIf="!loading" class="overflow-x-auto mb-6">
@@ -41,56 +47,61 @@ import { AuthService } from '../../core/auth/auth';
           <th class="p-3 text-center hidden md:table-cell">Sucursal</th>
           <th class="p-3 text-center">Total</th>
           <th class="p-3 text-center">Estado</th>
+          <th class="p-3 text-center hidden md:table-cell">Tipo</th>
           <th class="p-3 text-center hidden md:table-cell">Fecha</th>
           <th class="p-3 text-center">Acciones</th>
         </tr>
       </thead>
-
       <tbody>
-        <!-- Sin pedidos -->
         <tr *ngIf="pedidos.length === 0">
-          <td colspan="7" class="p-6 text-center text-gray-400">No hay pedidos registrados</td>
+          <td colspan="8" class="p-6 text-center text-gray-400">
+            No hay pedidos registrados
+          </td>
         </tr>
-
         <tr *ngFor="let p of pedidos" class="border-t hover:bg-gray-50">
           <td class="p-3 font-bold text-center">{{ p.pedido_id }}</td>
           <td class="p-3 text-center">{{ p.cliente }}</td>
-          <td class="p-3 text-center hidden md:table-cell">{{ p.sucursal }}</td>
-          <td class="p-3 text-center text-green-600 font-bold">S/ {{ p.total }}</td>
-
+          <td class="p-3 text-center hidden md:table-cell">
+            <span [ngClass]="colors.getSucursalClase(p.sucursal)"
+                  class="px-2 py-1 rounded-full text-xs font-medium">
+              {{ p.sucursal }}
+            </span>
+          </td>
+          <td class="p-3 text-center text-green-600 font-bold">
+            S/ {{ p.total }}
+          </td>
           <td class="p-3 text-center">
             <span [ngClass]="getEstadoClase(p.estado)"
                   class="px-2 py-1 rounded-full text-xs font-medium">
               {{ p.estado }}
             </span>
           </td>
-
+          <td class="p-3 text-center hidden md:table-cell">
+            <span [ngClass]="colors.getTipoPedidoClase(p.tipos_pedido)"
+                  class="px-2 py-1 rounded-full text-xs font-medium">
+              {{ p.tipos_pedido ?? '—' }}
+            </span>
+          </td>
           <td class="p-3 text-center hidden md:table-cell text-sm text-gray-500">
             {{ p.fecha | date:'dd/MM/yy HH:mm' }}
           </td>
-
           <td class="p-3 text-center">
             <div class="flex justify-center gap-1">
-              <!-- Ver detalle -->
               <button (click)="verDetalle(p)"
-                      title="Ver detalle"
-                      class="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded text-sm">
+                      class="bg-gray-500 hover:bg-gray-600 text-white
+                             px-2 py-1 rounded text-sm">
                 👁️
               </button>
-
-              <!-- Avanzar estado: oculto si es final -->
               <button *ngIf="puedeAvanzar(p)"
                       (click)="cambiarEstado(p)"
-                      title="Avanzar estado"
-                      class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-sm">
-                      {{ getTextoAccion(p.estado) }}
+                      class="bg-blue-500 hover:bg-blue-600 text-white
+                             px-2 py-1 rounded text-sm">
+                {{ getTextoAccion(p.estado) }}
               </button>
-
-              <!-- Cancelar: oculto si ya es final -->
               <button *ngIf="!esFinal(p.estado)"
                       (click)="cancelarPedido(p)"
-                      title="Cancelar pedido"
-                      class="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm">
+                      class="bg-red-500 hover:bg-red-600 text-white
+                             px-2 py-1 rounded text-sm">
                 ❌
               </button>
             </div>
@@ -106,17 +117,43 @@ import { AuthService } from '../../core/auth/auth';
   <div *ngIf="mostrarModal"
        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
 
-    <div class="bg-white w-full h-full md:h-auto md:max-w-3xl rounded-none md:rounded-2xl p-6 overflow-y-auto">
+    <div class="bg-white w-full h-full md:h-auto md:max-w-3xl
+                rounded-none md:rounded-2xl p-6 overflow-y-auto">
 
-      <!-- Cabecera modal -->
+      <!-- Cabecera -->
       <div class="flex justify-between items-center mb-5">
         <h3 class="text-xl font-bold">Nuevo Pedido</h3>
-        <button (click)="cerrarModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        <button (click)="cerrarModal()"
+                class="text-gray-400 hover:text-gray-600 text-2xl leading-none">
+          &times;
+        </button>
       </div>
 
-      <!-- ── PASO 1: Cliente ── -->
-      <div class="mb-5">
-        <p class="text-sm font-semibold text-gray-500 uppercase mb-2">1. Cliente</p>
+      <!-- Stepper -->
+      <div class="flex items-center gap-2 mb-6">
+        <div *ngFor="let s of pasos; let i = index"
+             class="flex items-center gap-2">
+          <div [ngClass]="paso >= i + 1
+                           ? 'bg-blue-600 text-white'
+                           : 'bg-gray-200 text-gray-500'"
+               class="w-7 h-7 rounded-full flex items-center justify-center
+                      text-xs font-bold transition-colors">
+            {{ i + 1 }}
+          </div>
+          <span [ngClass]="paso >= i + 1 ? 'text-blue-600' : 'text-gray-400'"
+                class="text-xs font-medium hidden sm:block">
+            {{ s }}
+          </span>
+          <div *ngIf="i < pasos.length - 1"
+               class="w-6 h-px bg-gray-300 mx-1"></div>
+        </div>
+      </div>
+
+      <!-- ══ PASO 1: Cliente ══ -->
+      <div *ngIf="paso === 1">
+        <p class="text-sm font-semibold text-gray-500 uppercase mb-3">
+          1. Cliente
+        </p>
 
         <div class="flex gap-2 mb-3">
           <input [(ngModel)]="dniBusqueda"
@@ -124,47 +161,87 @@ import { AuthService } from '../../core/auth/auth';
                  class="flex-1 p-2 border rounded"
                  (keyup.enter)="buscarCliente()"/>
           <button (click)="buscarCliente()"
-                  class="bg-blue-600 text-white px-4 rounded">
-            Buscar
+                  [disabled]="buscandoCliente"
+                  class="bg-blue-600 text-white px-4 rounded disabled:opacity-50">
+            {{ buscandoCliente ? 'Buscando...' : 'Buscar' }}
           </button>
         </div>
 
         <!-- Cliente encontrado -->
         <div *ngIf="clienteEncontrado"
-             class="flex items-center gap-3 bg-green-50 border border-green-200 p-3 rounded">
+             class="flex items-center gap-3 bg-green-50
+                    border border-green-200 p-3 rounded mb-3">
           <span class="text-green-600 text-xl">✓</span>
           <div>
             <p class="font-semibold">{{ clienteEncontrado.nombre }}</p>
-            <p class="text-sm text-gray-500">{{ clienteEncontrado.documento }} · {{ clienteEncontrado.telefono }}</p>
+            <p class="text-sm text-gray-500">
+              {{ clienteEncontrado.documento }} · {{ clienteEncontrado.telefono }}
+            </p>
+            <p *ngIf="clienteEncontrado.direccion"
+               class="text-xs text-gray-400 mt-0.5">
+              {{ clienteEncontrado.direccion }}
+            </p>
           </div>
         </div>
 
         <!-- Formulario nuevo cliente -->
-        <div *ngIf="mostrarFormCliente" class="border border-yellow-200 bg-yellow-50 p-4 rounded">
-          <p class="font-semibold text-yellow-700 mb-3">Registrar nuevo cliente</p>
+        <div *ngIf="mostrarFormCliente"
+             class="border border-yellow-200 bg-yellow-50 p-4 rounded">
+          <p class="font-semibold text-yellow-700 mb-3">
+            Registrar nuevo cliente
+          </p>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
-            <input [(ngModel)]="nuevoCliente.nombre"    placeholder="Nombres y apellidos *" class="p-2 border rounded"/>
-            <input [(ngModel)]="nuevoCliente.documento" placeholder="Nro. Documento"        class="p-2 border rounded" [value]="dniBusqueda" readonly/>
-            <input [(ngModel)]="nuevoCliente.telefono"  placeholder="Celular"               class="p-2 border rounded"/>
-            <input [(ngModel)]="nuevoCliente.email"     placeholder="Correo electrónico"    class="p-2 border rounded"/>
-            <input [(ngModel)]="nuevoCliente.direccion" placeholder="Dirección"             class="p-2 border rounded md:col-span-2"/>
+            <input [(ngModel)]="nuevoCliente.nombre"
+                   placeholder="Nombres y apellidos *"
+                   class="p-2 border rounded"/>
+            <input [(ngModel)]="nuevoCliente.documento"
+                   placeholder="Nro. Documento"
+                   class="p-2 border rounded"
+                   [value]="dniBusqueda"
+                   readonly/>
+            <input [(ngModel)]="nuevoCliente.telefono"
+                   placeholder="Celular"
+                   class="p-2 border rounded"/>
+            <input [(ngModel)]="nuevoCliente.email"
+                   placeholder="Correo electrónico"
+                   class="p-2 border rounded"/>
+            <input [(ngModel)]="nuevoCliente.direccion"
+                   placeholder="Dirección"
+                   class="p-2 border rounded md:col-span-2"/>
           </div>
           <button (click)="crearCliente()"
                   class="mt-3 bg-green-600 text-white px-4 py-2 rounded w-full">
             Guardar Cliente
           </button>
         </div>
+
+        <div class="flex justify-end mt-4">
+          <button (click)="irPaso(2)"
+                  [disabled]="!form.cliente_id"
+                  class="px-5 py-2 bg-blue-600 text-white rounded
+                         disabled:opacity-40">
+            Siguiente →
+          </button>
+        </div>
       </div>
 
-      <!-- ── PASO 2: Productos ── -->
-      <div class="mb-4">
-        <p class="text-sm font-semibold text-gray-500 uppercase mb-2">2. Productos</p>
+      <!-- ══ PASO 2: Productos ══ -->
+      <div *ngIf="paso === 2">
+        <p class="text-sm font-semibold text-gray-500 uppercase mb-3">
+          2. Productos
+        </p>
 
         <div class="flex gap-2 mb-3">
-          <select [(ngModel)]="nuevoItem.producto_id" class="flex-1 p-2 border rounded">
+          <select [(ngModel)]="nuevoItem.producto_id"
+                  class="flex-1 p-2 border rounded">
             <option [ngValue]="null">-- Selecciona producto --</option>
-            <option *ngFor="let p of productos" [ngValue]="p.producto_id">
+            <option *ngFor="let p of productos"
+                    [ngValue]="p.producto_id"
+                    [disabled]="!p.permite_pedido_sin_stock && p.stock_actual === 0">
               {{ p.nombre }} — S/ {{ p.precio }}
+              {{ !p.permite_pedido_sin_stock
+                  ? '(stock: ' + p.stock_actual + ')'
+                  : '(encargo)' }}
             </option>
           </select>
           <input type="number"
@@ -177,69 +254,293 @@ import { AuthService } from '../../core/auth/auth';
           </button>
         </div>
 
-        <!-- Lista de items -->
-        <div class="border rounded bg-gray-50 divide-y max-h-56 overflow-y-auto">
+        <!-- Lista items -->
+        <div class="border rounded bg-gray-50 divide-y max-h-52 overflow-y-auto mb-3">
           <div *ngIf="form.detalles.length === 0"
                class="p-4 text-center text-gray-400 text-sm">
             Sin productos aún
           </div>
-
           <div *ngFor="let d of form.detalles; let i = index"
                class="flex items-center gap-2 p-2 bg-white">
-            <span class="flex-1 text-sm font-medium">{{ d.producto }}</span>
+            <span class="flex-1 text-sm font-medium truncate">
+              {{ d.producto }}
+              <span *ngIf="d.permite_pedido_sin_stock"
+                    class="ml-1 text-xs bg-blue-100 text-blue-700
+                           px-1.5 py-0.5 rounded-full">
+                encargo
+              </span>
+            </span>
             <input type="number"
                    [(ngModel)]="d.cantidad"
                    (ngModelChange)="recalcular(d)"
                    min="1"
+                   [max]="d.permite_pedido_sin_stock ? 9999 : d.stock_actual"
                    class="w-16 border p-1 text-center rounded text-sm"/>
-            <span class="w-24 text-right font-semibold text-sm">S/ {{ d.subtotal | number:'1.2-2' }}</span>
-            <button (click)="eliminarItem(i)" class="text-red-400 hover:text-red-600 px-1">✕</button>
+            <span class="w-24 text-right font-semibold text-sm">
+              S/ {{ d.subtotal | number:'1.2-2' }}
+            </span>
+            <button (click)="eliminarItem(i)"
+                    class="text-red-400 hover:text-red-600 px-1">✕</button>
           </div>
+        </div>
+
+        <!-- Total -->
+        <div class="flex justify-end items-center gap-2 mb-4">
+          <span class="text-gray-500">Total:</span>
+          <span class="text-2xl font-bold text-green-600">
+            S/ {{ total | number:'1.2-2' }}
+          </span>
+        </div>
+
+        <div class="flex justify-between">
+          <button (click)="irPaso(1)"
+                  class="px-5 py-2 bg-gray-200 hover:bg-gray-300 rounded">
+            ← Volver
+          </button>
+          <button (click)="irPaso(3)"
+                  [disabled]="form.detalles.length === 0"
+                  class="px-5 py-2 bg-blue-600 text-white rounded
+                         disabled:opacity-40">
+            Siguiente →
+          </button>
         </div>
       </div>
 
-      <!-- Total -->
-      <div class="flex justify-end items-center gap-2 mb-5">
-        <span class="text-gray-500">Total:</span>
-        <span class="text-2xl font-bold text-green-600">S/ {{ total | number:'1.2-2' }}</span>
-      </div>
+      <!-- ══ PASO 3: Tipo y entrega ══ -->
+      <div *ngIf="paso === 3">
+        <p class="text-sm font-semibold text-gray-500 uppercase mb-3">
+          3. Tipo y entrega
+        </p>
 
-      <!-- Botones -->
-      <div class="flex justify-end gap-2">
-        <button (click)="cerrarModal()"
-                class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded">
-          Cancelar
-        </button>
-        <button (click)="guardarPedido()"
-                [disabled]="guardando"
-                class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded disabled:opacity-50">
-          {{ guardando ? 'Guardando...' : 'Guardar Pedido' }}
-        </button>
+        <!-- Selector tipo pedido -->
+        <div class="grid grid-cols-2 gap-3 mb-5">
+          <button (click)="seleccionarTipo('DELIVERY')"
+                  [ngClass]="form.tipos_pedido === 'DELIVERY'
+                              ? 'border-orange-500 bg-orange-50 text-orange-700'
+                              : 'border-gray-200 text-gray-500'"
+                  class="border-2 rounded-xl p-4 text-center transition-all">
+            <p class="text-2xl mb-1">🛵</p>
+            <p class="font-semibold text-sm">Delivery</p>
+            <p class="text-xs opacity-70">Se lleva al cliente</p>
+          </button>
+          <button (click)="seleccionarTipo('PICKUP')"
+                  [ngClass]="form.tipos_pedido === 'PICKUP'
+                              ? 'border-blue-500 bg-blue-50 text-blue-700'
+                              : 'border-gray-200 text-gray-500'"
+                  class="border-2 rounded-xl p-4 text-center transition-all">
+            <p class="text-2xl mb-1">🏪</p>
+            <p class="font-semibold text-sm">Pickup</p>
+            <p class="text-xs opacity-70">Recoge en tienda</p>
+          </button>
+        </div>
+
+        <!-- ── DELIVERY ── -->
+        <div *ngIf="form.tipos_pedido === 'DELIVERY'" class="space-y-3">
+
+          <!-- Toggle: dirección del cliente vs nueva -->
+          <div class="flex gap-3 mb-2">
+            <button (click)="usarDireccionCliente()"
+                    [ngClass]="usandoDireccionCliente
+                                ? 'bg-green-600 text-white'
+                                : 'bg-gray-100 text-gray-600'"
+                    class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors">
+              Usar dirección del cliente
+            </button>
+            <button (click)="usarOtraDireccion()"
+                    [ngClass]="!usandoDireccionCliente
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-100 text-gray-600'"
+                    class="flex-1 py-2 rounded-lg text-sm font-medium transition-colors">
+              Otra dirección
+            </button>
+          </div>
+
+          <!-- Dirección del cliente (solo lectura) -->
+          <div *ngIf="usandoDireccionCliente"
+               class="bg-green-50 border border-green-200 rounded-lg p-3 text-sm">
+            <p class="font-medium text-green-800 mb-1">
+              Dirección registrada del cliente
+            </p>
+            <p *ngIf="clienteEncontrado?.direccion" class="text-gray-700">
+              {{ clienteEncontrado.direccion }}
+            </p>
+            <p *ngIf="clienteEncontrado?.departamento_nombre ||
+                      clienteEncontrado?.provincia_nombre ||
+                      clienteEncontrado?.distrito_nombre"
+               class="text-gray-500 text-xs mt-1">
+              {{ clienteEncontrado?.distrito_nombre }}
+              {{ clienteEncontrado?.provincia_nombre ? '· ' + clienteEncontrado.provincia_nombre : '' }}
+              {{ clienteEncontrado?.departamento_nombre ? '· ' + clienteEncontrado.departamento_nombre : '' }}
+            </p>
+            <p *ngIf="!clienteEncontrado?.direccion &&
+                      !clienteEncontrado?.distrito_nombre"
+               class="text-yellow-600 text-xs">
+              El cliente no tiene dirección registrada. Usa "Otra dirección".
+            </p>
+          </div>
+
+          <!-- Nueva dirección en cascada -->
+          <div *ngIf="!usandoDireccionCliente" class="space-y-2">
+
+            <!-- Departamento -->
+            <div>
+              <label class="text-xs text-gray-500 mb-1 block">
+                Departamento
+              </label>
+              <select [(ngModel)]="entrega.departamento_id"
+                      (ngModelChange)="onDepartamentoChange($event)"
+                      class="w-full p-2 border rounded">
+                <option [ngValue]="null">-- Selecciona --</option>
+                <option *ngFor="let d of departamentos"
+                        [ngValue]="d.departamento_id">
+                  {{ d.nombre }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Provincia -->
+            <div>
+              <label class="text-xs text-gray-500 mb-1 block">
+                Provincia
+              </label>
+              <select [(ngModel)]="entrega.provincia_id"
+                      (ngModelChange)="onProvinciaChange($event)"
+                      [disabled]="!entrega.departamento_id"
+                      class="w-full p-2 border rounded disabled:opacity-50">
+                <option [ngValue]="null">-- Selecciona --</option>
+                <option *ngFor="let p of provincias"
+                        [ngValue]="p.provincia_id">
+                  {{ p.nombre }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Distrito -->
+            <div>
+              <label class="text-xs text-gray-500 mb-1 block">
+                Distrito
+              </label>
+              <select [(ngModel)]="entrega.distrito_id"
+                      [disabled]="!entrega.provincia_id"
+                      class="w-full p-2 border rounded disabled:opacity-50">
+                <option [ngValue]="null">-- Selecciona --</option>
+                <option *ngFor="let d of distritos"
+                        [ngValue]="d.distrito_id">
+                  {{ d.nombre }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Dirección texto -->
+            <div>
+              <label class="text-xs text-gray-500 mb-1 block">
+                Dirección exacta
+              </label>
+              <input [(ngModel)]="entrega.direccion"
+                     placeholder="Ej: Av. Lima 123, Mz. A Lt. 5"
+                     class="w-full p-2 border rounded"/>
+            </div>
+          </div>
+
+          <!-- Observaciones -->
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">
+              Observaciones (opcional)
+            </label>
+            <input [(ngModel)]="form.observaciones"
+                   placeholder="Ej: dejar en recepción, sin cebolla..."
+                   class="w-full p-2 border rounded text-sm"/>
+          </div>
+        </div>
+
+        <!-- ── PICKUP ── -->
+        <div *ngIf="form.tipos_pedido === 'PICKUP'" class="space-y-3">
+
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">
+              Sucursal donde recoge
+            </label>
+            <select [(ngModel)]="form.sucursal_recojo_id"
+                    class="w-full p-2 border rounded">
+              <option [ngValue]="null">-- Selecciona sucursal --</option>
+              <option *ngFor="let s of sucursales"
+                      [ngValue]="s.sucursal_id">
+                {{ s.nombre }}
+                <span *ngIf="s.direccion"> — {{ s.direccion }}</span>
+              </option>
+            </select>
+          </div>
+
+          <!-- Observaciones -->
+          <div>
+            <label class="text-xs text-gray-500 mb-1 block">
+              Observaciones (opcional)
+            </label>
+            <input [(ngModel)]="form.observaciones"
+                   placeholder="Ej: viene a las 3pm, empacar por separado..."
+                   class="w-full p-2 border rounded text-sm"/>
+          </div>
+        </div>
+
+        <!-- Botones -->
+        <div class="flex justify-between mt-6">
+          <button (click)="irPaso(2)"
+                  class="px-5 py-2 bg-gray-200 hover:bg-gray-300 rounded">
+            ← Volver
+          </button>
+          <button (click)="guardarPedido()"
+                  [disabled]="!puedeGuardar() || guardando"
+                  class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white
+                         rounded disabled:opacity-40">
+            {{ guardando ? 'Guardando...' : 'Guardar Pedido' }}
+          </button>
+        </div>
       </div>
 
     </div>
   </div>
 
 </div>
-`
+  `
 })
 export class PedidosComponent implements OnInit {
 
-  pedidos:  any[] = [];
-  productos: any[] = [];
+  pedidos:     any[] = [];
+  productos:   any[] = [];
+  sucursales:  any[] = [];
+  departamentos: any[] = [];
+  provincias:  any[] = [];
+  distritos:   any[] = [];
+  
+  // Stepper
+  paso  = 1;
+  pasos = ['Cliente', 'Productos', 'Entrega'];
 
-  dniBusqueda       = '';
+  dniBusqueda        = '';
   clienteEncontrado: any = null;
   mostrarFormCliente = false;
+  usandoDireccionCliente = false;
 
   nuevoCliente: any = {
     nombre: '', telefono: '', direccion: '', email: ''
   };
 
-  // ── usuario_id y sucursal_id ya NO van aquí: los pone el backend desde el JWT ──
   form: any = {
-    cliente_id: null,
-    detalles:   []
+    cliente_id:       null,
+    detalles:         [],
+    tipos_pedido:     null,
+    observaciones:    '',
+    direccion_entrega: '',
+    sucursal_recojo_id: null
+  };
+
+  // Datos de entrega para nueva dirección
+  entrega: any = {
+    departamento_id: null,
+    provincia_id:    null,
+    distrito_id:     null,
+    direccion:       '',
+    
   };
 
   nuevoItem: any = { producto_id: null, cantidad: 1 };
@@ -247,8 +548,8 @@ export class PedidosComponent implements OnInit {
   mostrarModal = false;
   loading      = true;
   guardando    = false;
+  buscandoCliente = false;
 
-  // Mapa: estado actual → siguiente estado_id
   private readonly flujoEstados: Record<string, number> = {
     'PENDIENTE':      2,
     'CONFIRMADO':     3,
@@ -256,15 +557,17 @@ export class PedidosComponent implements OnInit {
     'LISTO':          5
   };
 
-  // Estados que no pueden avanzar ni cancelarse
   private readonly estadosFinales = new Set(['ENTREGADO', 'CANCELADO']);
 
   constructor(
-    private pedidosService:  PedidosService,
-    private clientesService: ClientesService,
+    private pedidosService:   PedidosService,
+    private clientesService:  ClientesService,
     private productosService: ProductosService,
-    private authService: AuthService,
-    private cd: ChangeDetectorRef
+    private sucursalesService: SucursalesService,
+    private ubigeoService:    UbigeoService,
+    private authService:      AuthService,
+    private cd:               ChangeDetectorRef,
+    public colors: ColorService
   ) {}
 
   ngOnInit() { this.cargar(); }
@@ -286,46 +589,82 @@ export class PedidosComponent implements OnInit {
   }
 
   nuevoPedido() {
+    this.paso              = 1;
     this.mostrarModal      = true;
-    this.form              = { cliente_id: null, detalles: [] };
-    this.dniBusqueda       = '';
-    this.clienteEncontrado = null;
-    this.mostrarFormCliente = false;
-    this.nuevoItem         = { producto_id: null, cantidad: 1 };
+    this.form              = {
+      cliente_id:         null,
+      detalles:           [],
+      tipos_pedido:       null,
+      observaciones:      '',
+      direccion_entrega:  '',
+      sucursal_recojo_id: null
+    };
+    this.entrega = {
+      departamento_id: null,
+      provincia_id:    null,
+      distrito_id:     null,
+      direccion:       ''
+    };
+    this.dniBusqueda           = '';
+    this.clienteEncontrado     = null;
+    this.mostrarFormCliente    = false;
+    this.usandoDireccionCliente = false;
+    this.nuevoItem             = { producto_id: null, cantidad: 1 };
 
-    this.productosService.getProductos().subscribe((res: any) => {
+    // Cargar productos y sucursales en paralelo
+    this.productosService.getProductosDisponibles().subscribe((res: any) => {
       this.productos = res;
+      this.cd.detectChanges();
+    });
+
+    this.sucursalesService.getSucursalesPickup().subscribe((res: any) => {
+    this.sucursales = res.filter((s: any) => s.activo);
+    this.cd.detectChanges();
+  });
+
+    // Cargar departamentos para la cascada
+    this.ubigeoService.getDepartamentos().subscribe((res: any) => {
+      this.departamentos = res;
       this.cd.detectChanges();
     });
   }
 
-  cerrarModal() {
-    this.mostrarModal = false;
+  cerrarModal() { this.mostrarModal = false; }
+
+  irPaso(n: number) {
+    this.paso = n;
+    this.cd.detectChanges();
   }
 
   // ─────────────────────────────────────────────
   buscarCliente() {
-    if (!this.dniBusqueda.trim()) {
-      Swal.fire('¡Cuidado!', 'Ingrese un número de documento', 'warning');
-      return;
-    }
-
-    this.clientesService.getClienteDNI(this.dniBusqueda).subscribe({
-      next: (res: any) => {
-        this.clienteEncontrado  = res;
-        this.form.cliente_id    = res.cliente_id;
-        this.mostrarFormCliente = false;
-        this.cd.detectChanges();
-      },
-      error: () => {
-        this.clienteEncontrado = null;
-        this.mostrarFormCliente = true;
-        this.nuevoCliente = { nombre: '', telefono: '', direccion: '', email: '' };
-        Swal.fire('Aviso', 'Cliente no encontrado — regístrelo', 'warning');
-        this.cd.detectChanges();
-      }
-    });
+  if (!this.dniBusqueda.trim()) {
+    Swal.fire('¡Cuidado!', 'Ingrese un número de documento', 'warning');
+    return;
   }
+
+  if (this.buscandoCliente) return;
+  this.buscandoCliente = true;
+  this.cd.detectChanges();
+
+  this.clientesService.getClienteDNI(this.dniBusqueda).subscribe({
+    next: (res: any) => {
+      this.buscandoCliente    = false;
+      this.clienteEncontrado  = res;
+      this.form.cliente_id    = res.cliente_id;
+      this.mostrarFormCliente = false;
+      this.cd.detectChanges();
+    },
+    error: () => {
+      this.buscandoCliente    = false;
+      this.clienteEncontrado  = null;
+      this.mostrarFormCliente = true;
+      this.nuevoCliente = { nombre: '', telefono: '', direccion: '', email: '' };
+      this.cd.detectChanges();
+      Swal.fire('Aviso', 'Cliente no encontrado — regístrelo', 'warning');
+    }
+  });
+}
 
   crearCliente() {
     if (!this.nuevoCliente.nombre?.trim()) {
@@ -348,12 +687,90 @@ export class PedidosComponent implements OnInit {
   }
 
   // ─────────────────────────────────────────────
+  seleccionarTipo(tipo: string) {
+    this.form.tipos_pedido      = tipo;
+    this.usandoDireccionCliente = false;
+    this.form.sucursal_recojo_id = null;
+    this.entrega = {
+      departamento_id: null,
+      provincia_id:    null,
+      distrito_id:     null,
+      direccion:       ''
+    };
+    this.cd.detectChanges();
+  }
+
+  usarDireccionCliente() {
+    this.usandoDireccionCliente = true;
+    // Pre-carga la dirección del cliente en el form
+    this.form.direccion_entrega = this.clienteEncontrado?.direccion ?? '';
+    this.cd.detectChanges();
+  }
+
+  usarOtraDireccion() {
+    this.usandoDireccionCliente = false;
+    this.entrega = {
+      departamento_id: null,
+      provincia_id:    null,
+      distrito_id:     null,
+      direccion:       ''
+    };
+    this.cd.detectChanges();
+  }
+
+  // Cascada ubigeo
+  onDepartamentoChange(departamentoId: number) {
+    this.entrega.provincia_id = null;
+    this.entrega.distrito_id  = null;
+    this.provincias           = [];
+    this.distritos            = [];
+
+    if (!departamentoId) return;
+
+    this.ubigeoService.getProvincias(departamentoId).subscribe((res: any) => {
+      this.provincias = res;
+      this.cd.detectChanges();
+    });
+  }
+
+  onProvinciaChange(provinciaId: number) {
+    this.entrega.distrito_id = null;
+    this.distritos           = [];
+
+    if (!provinciaId) return;
+
+    this.ubigeoService.getDistritos(provinciaId).subscribe((res: any) => {
+      this.distritos = res;
+      this.cd.detectChanges();
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  puedeGuardar(): boolean {
+    if (!this.form.tipos_pedido) return false;
+
+    if (this.form.tipos_pedido === 'PICKUP') {
+      return !!this.form.sucursal_recojo_id;
+    }
+
+    if (this.form.tipos_pedido === 'DELIVERY') {
+      if (this.usandoDireccionCliente) {
+        return !!(this.clienteEncontrado?.direccion ||
+                  this.clienteEncontrado?.distrito_id);
+      }
+      // Nueva dirección: al menos distrito y dirección texto
+      return !!(this.entrega.distrito_id && this.entrega.direccion?.trim());
+    }
+
+    return false;
+  }
+
+  // ─────────────────────────────────────────────
   agregarItem() {
     if (!this.nuevoItem.producto_id) {
       Swal.fire('Atención', 'Selecciona un producto', 'warning');
       return;
     }
-
     if (!this.nuevoItem.cantidad || this.nuevoItem.cantidad < 1) {
       Swal.fire('Atención', 'La cantidad debe ser mayor a 0', 'warning');
       return;
@@ -361,31 +778,56 @@ export class PedidosComponent implements OnInit {
 
     const prod = this.productos.find(p => p.producto_id === this.nuevoItem.producto_id);
 
-    // Si el producto ya está en la lista, solo suma cantidad
-    const existente = this.form.detalles.find((d: any) => d.producto_id === prod.producto_id);
+    if (!prod.permite_pedido_sin_stock) {
+      const yaEnCarrito = this.form.detalles
+        .filter((d: any) => d.producto_id === prod.producto_id)
+        .reduce((sum: number, d: any) => sum + d.cantidad, 0);
+
+      const totalSolicitado = yaEnCarrito + this.nuevoItem.cantidad;
+
+      if (prod.stock_disponible === 0) {
+        Swal.fire({
+          icon: 'error', title: 'Sin stock',
+          text: `"${prod.nombre}" no tiene stock disponible.`
+        });
+        return;
+      }
+
+      if (totalSolicitado > prod.stock_disponible) {
+        Swal.fire({
+          icon: 'warning', title: 'Stock insuficiente',
+          html: `Solo hay <b>${prod.stock_actual}</b> unidad(es) de
+                 "<b>${prod.nombre}</b>".<br>
+                 Ya tienes <b>${yaEnCarrito}</b> en el pedido.`
+        });
+        return;
+      }
+    }
+
+    const existente = this.form.detalles
+      .find((d: any) => d.producto_id === prod.producto_id);
+
     if (existente) {
       existente.cantidad += this.nuevoItem.cantidad;
       this.recalcular(existente);
     } else {
       this.form.detalles.push({
-        producto_id: prod.producto_id,
-        producto:    prod.nombre,
-        cantidad:    this.nuevoItem.cantidad,
-        precio:      prod.precio,
-        subtotal:    prod.precio * this.nuevoItem.cantidad
+        producto_id:              prod.producto_id,
+        producto:                 prod.nombre,
+        cantidad:                 this.nuevoItem.cantidad,
+        precio:                   prod.precio,
+        subtotal:                 prod.precio * this.nuevoItem.cantidad,
+        stock_actual:             prod.stock_actual,
+        permite_pedido_sin_stock: prod.permite_pedido_sin_stock
       });
     }
 
     this.nuevoItem = { producto_id: null, cantidad: 1 };
   }
 
-  recalcular(d: any) {
-    d.subtotal = d.precio * d.cantidad;
-  }
+  recalcular(d: any) { d.subtotal = d.precio * d.cantidad; }
 
-  eliminarItem(i: number) {
-    this.form.detalles.splice(i, 1);
-  }
+  eliminarItem(i: number) { this.form.detalles.splice(i, 1); }
 
   get total() {
     return this.form.detalles.reduce((a: number, b: any) => a + b.subtotal, 0);
@@ -393,14 +835,29 @@ export class PedidosComponent implements OnInit {
 
   // ─────────────────────────────────────────────
   guardarPedido() {
-    if (!this.form.cliente_id) {
-      Swal.fire('Falta cliente', 'Busca o registra un cliente antes de guardar', 'warning');
-      return;
-    }
+    // Armar dirección_entrega según el tipo
+    if (this.form.tipos_pedido === 'DELIVERY') {
+      if (this.usandoDireccionCliente) {
+        this.form.direccion_entrega = this.clienteEncontrado?.direccion ?? '';
+      } else {
+        // Construir string legible con ubigeo seleccionado
+        const dist = this.distritos.find(d => d.distrito_id === this.entrega.distrito_id);
+        const prov = this.provincias.find(p => p.provincia_id === this.entrega.provincia_id);
+        const dep  = this.departamentos.find(d => d.departamento_id === this.entrega.departamento_id);
 
-    if (this.form.detalles.length === 0) {
-      Swal.fire('Sin productos', 'Agrega al menos un producto al pedido', 'warning');
-      return;
+        this.form.direccion_entrega = [
+          this.entrega.direccion,
+          dist?.nombre,
+          prov?.nombre,
+          dep?.nombre
+        ].filter(Boolean).join(', ');
+      }
+    } else {
+      // PICKUP: la dirección es la de la sucursal elegida
+      const suc = this.sucursales.find(
+        s => s.sucursal_id === this.form.sucursal_recojo_id
+      );
+      this.form.direccion_entrega = suc?.direccion ?? '';
     }
 
     this.guardando = true;
@@ -430,15 +887,27 @@ export class PedidosComponent implements OnInit {
       `<tr>
         <td style="padding:4px 8px">${d.producto}</td>
         <td style="padding:4px 8px;text-align:center">${d.cantidad}</td>
-        <td style="padding:4px 8px;text-align:right">S/ ${Number(d.precio).toFixed(2)}</td>
-        <td style="padding:4px 8px;text-align:right;font-weight:600">S/ ${Number(d.subtotal).toFixed(2)}</td>
+        <td style="padding:4px 8px;text-align:right">
+          S/ ${Number(d.precio).toFixed(2)}
+        </td>
+        <td style="padding:4px 8px;text-align:right;font-weight:600">
+          S/ ${Number(d.subtotal).toFixed(2)}
+        </td>
       </tr>`
     ).join('');
+
+    const tipoLabel = p.tipos_pedido === 'DELIVERY' ? '🛵 Delivery' : '🏪 Pickup';
+    const dirLabel  = p.direccion_entrega
+      ? `<p style="margin:8px 0 0;font-size:12px;color:#6b7280">
+           ${tipoLabel} · ${p.direccion_entrega}
+         </p>`
+      : `<p style="margin:8px 0 0;font-size:12px;color:#6b7280">${tipoLabel}</p>`;
 
     Swal.fire({
       title: `Pedido #${p.pedido_id}`,
       html: `
-        <table style="width:100%;font-size:14px;border-collapse:collapse">
+        ${dirLabel}
+        <table style="width:100%;font-size:14px;border-collapse:collapse;margin-top:12px">
           <thead>
             <tr style="border-bottom:1px solid #e5e7eb;color:#6b7280">
               <th style="padding:4px 8px;text-align:left">Producto</th>
@@ -450,67 +919,54 @@ export class PedidosComponent implements OnInit {
           <tbody>${rows}</tbody>
           <tfoot>
             <tr style="border-top:2px solid #e5e7eb">
-              <td colspan="3" style="padding:8px;text-align:right;font-weight:600">Total</td>
-              <td style="padding:8px;text-align:right;font-weight:700;color:#16a34a">S/ ${Number(p.total).toFixed(2)}</td>
+              <td colspan="3"
+                  style="padding:8px;text-align:right;font-weight:600">
+                Total
+              </td>
+              <td style="padding:8px;text-align:right;
+                         font-weight:700;color:#16a34a">
+                S/ ${Number(p.total).toFixed(2)}
+              </td>
             </tr>
           </tfoot>
         </table>`,
-      width: 500
+      width: 520
     });
   }
 
   // ─────────────────────────────────────────────
   cambiarEstado(p: any) {
+    const rol = this.authService.getRolId();
+    let siguiente: number | null = null;
 
-  const rol = this.authService.getRolId();
+    if (rol === 3 && p.estado === 'PENDIENTE')            siguiente = 2;
+    else if (rol === 3 && p.estado === 'CONFIRMADO')      siguiente = 3;
+    else if (rol === 4 && p.estado === 'EN_PREPARACION')  siguiente = 4;
+    else if ((rol === 4 || rol === 5) && p.estado === 'LISTO') siguiente = 5;
+    else if (this.authService.isAdminOrSuper())           siguiente = this.flujoEstados[p.estado];
 
-  let siguiente = null;
+    if (!siguiente) {
+      Swal.fire('No permitido', 'No puedes cambiar este estado', 'warning');
+      return;
+    }
 
-  if (rol === 3 && p.estado === 'PENDIENTE') {
-    siguiente = 2; // CONFIRMADO
-  }
-
-  else if (rol === 3 && p.estado === 'CONFIRMADO') {
-    siguiente = 3; // EN_PREPARACION
-  }
-
-  else if (rol === 4 && p.estado === 'EN_PREPARACION') {
-    siguiente = 4; // LISTO
-  }
-
-  else if ((rol === 4 || rol === 5) && p.estado === 'LISTO') {
-    siguiente = 5; // ENTREGADO
-  }
-
-  else if (this.authService.isAdminOrSuper()) {
-    siguiente = this.flujoEstados[p.estado];
-  }
-
-  if (!siguiente) {
-    Swal.fire('No permitido', 'No puedes cambiar este estado', 'warning');
-    return;
-  }
-
-  this.pedidosService.cambiarEstado(p.pedido_id, siguiente)
-    .subscribe({
+    this.pedidosService.cambiarEstado(p.pedido_id, siguiente).subscribe({
       next: () => this.cargar(),
       error: (err) => Swal.fire('Error', err.error, 'error')
     });
-}
-
+  }
 
   cancelarPedido(p: any) {
     Swal.fire({
-      title: '¿Cancelar pedido?',
-      text: `Pedido #${p.pedido_id} de ${p.cliente}`,
-      icon: 'warning',
-      showCancelButton: true,
+      title:              '¿Cancelar pedido?',
+      text:               `Pedido #${p.pedido_id} de ${p.cliente}`,
+      icon:               'warning',
+      showCancelButton:   true,
       confirmButtonColor: '#ef4444',
-      confirmButtonText: 'Sí, cancelar',
-      cancelButtonText: 'No'
+      confirmButtonText:  'Sí, cancelar',
+      cancelButtonText:   'No'
     }).then(r => {
       if (!r.isConfirmed) return;
-
       this.pedidosService.cancelarPedido(p.pedido_id).subscribe({
         next: () => this.cargar(),
         error: (err) => Swal.fire('Error', err?.error || 'No se pudo cancelar', 'error')
@@ -524,28 +980,26 @@ export class PedidosComponent implements OnInit {
   }
 
   getEstadoClase(e: string): string {
-    const clases: Record<string, string> = {
-      'PENDIENTE':      'bg-yellow-100 text-yellow-800',
-      'CONFIRMADO':     'bg-blue-100 text-blue-800',
-      'EN_PREPARACION': 'bg-purple-100 text-purple-800',
-      'LISTO':          'bg-green-100 text-green-800',
-      'ENTREGADO':      'bg-gray-200 text-gray-700',
-      'CANCELADO':      'bg-red-100 text-red-700'
-    };
-    return clases[e] ?? 'bg-gray-100 text-gray-600';
-  }
+  return this.colors.getEstadoClase(e);
+}
 
-  puedeAvanzar(p:any){
-  return !this.esFinal(p.estado);
-  }
+  puedeAvanzar(p: any): boolean {
+    if (this.esFinal(p.estado)) return false;
+    const rol = this.authService.getRolId();
+    if (rol === 2) return false;
+    if (rol === 3) return p.estado === 'PENDIENTE' || p.estado === 'CONFIRMADO';
+    if (rol === 4) return p.estado === 'EN_PREPARACION' || p.estado === 'LISTO';
+    if (rol === 5) return p.estado === 'LISTO';
+    return true;
+  }  
 
-  getTextoAccion(estado:string){
-    const map:any = {
-      'PENDIENTE': 'Confirmar',
-      'CONFIRMADO': 'Preparar',
+  getTextoAccion(estado: string): string {
+    const map: Record<string, string> = {
+      'PENDIENTE':      'Confirmar',
+      'CONFIRMADO':     'Preparar',
       'EN_PREPARACION': 'Marcar listo',
-      'LISTO': 'Entregar'
+      'LISTO':          'Entregar'
     };
-    return map[estado] || 'Avanzar';
+    return map[estado] ?? 'Avanzar';
   }
 }

@@ -26,4 +26,8 @@ export class PedidosService {
   cancelarPedido(id: number) {
     return this.http.put(`${environment.apiUrl}/pedidos/${id}/cancelar`, {});
   }
+
+  getSucursalesPickup() {
+  return this.http.get<any[]>(`${environment.apiUrl}/sucursales?todas=true`);
+  }
 }

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ClientesService } from '../../core/services/clientes';
 import { UbigeoService } from '../../core/services/ubigeos';
+import { ColorService } from '../../core/services/color';
 import Swal from 'sweetalert2';
 
 @Component({
@@ -10,467 +11,402 @@ import Swal from 'sweetalert2';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <div>
-      <!-- HEADER -->
-      <div class="flex justify-between items-center mb-6">
-        <h2 class="text-xl font-bold text-gray-700">Clientes</h2> 
+<div>
 
-        <button
-          (click)="nuevo()"
-          class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-        >
-          + Nuevo
+  <!-- HEADER -->
+  <div class="flex justify-between items-center mb-6">
+    <h2 class="text-xl font-bold text-gray-700">Clientes</h2>
+    <button (click)="nuevo()"
+            class="bg-blue-600 text-white px-4 py-2 rounded-lg
+                   hover:bg-blue-700 transition">
+      + Nuevo
+    </button>
+  </div>
+
+  <!-- BUSCADOR -->
+  <div class="mb-4 flex gap-2">
+    <input [(ngModel)]="dniBusqueda"
+           placeholder="Buscar por DNI..."
+           class="border p-2 rounded w-64"
+           (keyup.enter)="buscarPorDni()"/>
+    <button (click)="buscarPorDni()"
+            class="bg-blue-600 text-white px-4 py-2 rounded">
+      Buscar
+    </button>
+    <button (click)="limpiar()"
+            class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400">
+      Reset
+    </button>
+  </div>
+
+  <!-- LOADING -->
+  <div *ngIf="loading" class="text-gray-500 py-6 text-center">
+    Cargando...
+  </div>
+
+  <!-- TABLA -->
+  <div *ngIf="!loading" class="overflow-x-auto mb-6">
+    <table class="min-w-full bg-white rounded-xl shadow">
+      <thead class="bg-gray-100">
+        <tr>
+          <th class="text-center p-3 text-sm">ID</th>
+          <th class="text-center p-3 text-sm">Nombre</th>
+          <th class="text-center p-3 text-sm">Documento</th>
+          <th class="text-center p-3 text-sm">Teléfono</th>
+          <th class="text-center p-3 text-sm">Ubicación</th>
+          <th class="text-center p-3 text-sm">Dirección</th>
+          <th class="text-center p-3 text-sm">Email</th>
+          <th class="text-center p-3 text-sm">Estado</th>
+          <th class="text-center p-3 text-sm w-24">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngIf="clientes.length === 0">
+          <td colspan="9" class="p-6 text-center text-gray-400">
+            No hay clientes registrados
+          </td>
+        </tr>
+        <tr *ngFor="let c of clientes"
+            class="border-t hover:bg-gray-50">
+          <td class="p-3 text-center text-sm text-gray-500">
+            {{ c.cliente_id }}
+          </td>
+          <td class="p-3 text-center font-medium">{{ c.nombre }}</td>
+          <td class="p-3 text-center text-sm">{{ c.documento }}</td>
+          <td class="p-3 text-center text-sm">{{ c.telefono }}</td>
+
+          <!-- Ubicación agrupada -->
+          <td class="p-3 text-center">
+            <div *ngIf="c.distrito || c.provincia || c.departamento"
+                 class="flex flex-col gap-0.5 items-center">
+              <span *ngIf="c.distrito"
+                    class="text-xs text-gray-700 font-medium">
+                {{ c.distrito }}
+              </span>
+              <span *ngIf="c.provincia"
+                    class="text-xs text-gray-500">
+                {{ c.provincia }}
+              </span>
+              <span *ngIf="c.departamento"
+                    [ngClass]="colors.getSucursalClase(c.departamento)"
+                    class="text-xs px-2 py-0.5 rounded-full font-medium mt-0.5">
+                {{ c.departamento }}
+              </span>
+            </div>
+            <span *ngIf="!c.distrito && !c.provincia && !c.departamento"
+                  class="text-gray-300 text-xs">—</span>
+          </td>
+
+          <td class="p-3 text-center text-sm text-gray-600 max-w-[160px]">
+            <p class="line-clamp-2">{{ c.direccion || '—' }}</p>
+          </td>
+          <td class="p-3 text-center text-sm text-gray-500 max-w-[140px]">
+            <p class="line-clamp-1">{{ c.email || '—' }}</p>
+          </td>
+
+          <td class="p-3 text-center">
+            <span [ngClass]="c.activo
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-red-100 text-red-700'"
+                  class="px-2 py-1 rounded-full text-xs font-medium">
+              {{ c.activo ? 'Activo' : 'Inactivo' }}
+            </span>
+          </td>
+
+          <td class="p-3 text-center">
+            <button (click)="editar(c)"
+                    class="bg-blue-500 hover:bg-blue-600 text-white
+                           px-2 py-1 rounded text-sm">
+              ✏️
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- MODAL -->
+  <div *ngIf="mostrarForm"
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6
+                max-h-screen overflow-y-auto">
+
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-lg font-bold">
+          {{ editando ? 'Editar' : 'Nuevo' }} Cliente
+        </h3>
+        <button (click)="cancelar()"
+                class="text-gray-400 hover:text-gray-600 text-2xl leading-none">
+          &times;
         </button>
       </div>
 
-      <!-- BUSCADOR DNI -->
-    <div class="mb-4 flex gap-2">
-        <input
-            [(ngModel)]="dniBusqueda"
-            placeholder="Buscar por DNI..."
-            class="border p-2 rounded w-64"
-        />
+      <div class="space-y-3">
 
-        <button
-            (click)="buscarPorDni()"
-            class="bg-blue-600 text-white px-4 py-2 rounded"
-        >
-            Buscar
-        </button>
-
-        <button            
-            (click)="limpiar()"
-            class="bg-gray-300 px-4 py-2 rounded"
-        >
-            Reset
-        </button>
-    </div>
-
-      <!-- LOADING -->
-      <div *ngIf="loading" class="text-gray-500">Cargando...</div>
-
-      <!-- TABLA -->
-      <div class="overflow-x-auto mb-6">
-        <table class="min-w-full bg-white rounded-xl shadow">
-          <thead class="bg-gray-100">
-            <tr>
-              <th class="text-center p-3">ID</th>
-              <th class="text-center p-3">Nombre</th>
-              <th class="text-center p-3">Documento</th>
-              <th class="text-center p-3">Teléfono</th>
-              <th class="text-center p-3">Dirección</th>   
-              <th class="text-center p-3">Departamento</th>
-              <th class="text-center p-3">Provincia</th>
-              <th class="text-center p-3">Distrito</th>           
-              <th class="text-center p-3">Email</th>
-              <th class="text-center p-3">Estado</th>
-              <th class="text-center p-3 w-32">Acciones</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr *ngFor="let p of clientes" class="border-t hover:bg-gray-50">
-              <td class="p-3 text-center">{{ p.cliente_id }}</td>
-              <td class="p-3 text-center">{{ p.nombre }}</td>
-              <td class="p-3 text-center">{{ p.documento }}</td>
-              <td class="p-3 text-center">{{ p.telefono }}</td>
-              <td class="p-3 max-w-sm text-center">
-                <p class="line-clamp-2">{{ p.direccion }}</p>
-              </td>
-              <td class="p-3 text-center">{{ p.departamento }}</td>
-              <td class="p-3 text-center">{{ p.provincia }}</td>
-              <td class="p-3 text-center">{{ p.distrito }}</td>
-              <td class="p-3 max-w-sm text-center">
-                <p class="line-clamp-2">{{ p.email }}</p>
-              </td>
-              <td class="p-3 text-center">
-                <span
-                  [ngClass]="p.activo ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
-                  class="px-2 py-1 rounded text-xs"
-                >
-                  {{ p.activo ? 'Activo' : 'Inactivo' }}
-                </span>
-              </td>              
-              <td class="p-3 text-center space-x-2">
-                <button
-                  (click)="editar(p)"
-                  class="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
-                >
-                  ✏️
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- MODAL PRO -->
-      <div
-        *ngIf="mostrarForm"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      >
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 animate-fade-in">
-          <h3 class="text-lg font-bold mb-4">{{ editando ? 'Editar' : 'Nuevo' }} Clientes</h3>
-
-          <div class="space-y-3">
-            <!-- NOMBRE -->
-            <div>
-              <label class="text-sm text-gray-600">Nombre</label>
-              <input [(ngModel)]="form.nombre" class="w-full p-2 border rounded-lg" />
-            </div>
-
-            <!-- DOCUMENTO -->
-            <div>
-              <label class="text-sm text-gray-600">Documento de Identidad</label>
-              <input [(ngModel)]="form.documento" class="w-full p-2 border rounded-lg" />
-            </div>
-
-            <!-- TELEFONO -->
-            <div>
-              <label class="text-sm text-gray-600">Telefono</label>
-              <input [(ngModel)]="form.telefono" class="w-full p-2 border rounded-lg" />
-            </div>
-
-            <!-- DEPARTAMENTO -->
-            <div>
-              <label class="text-sm text-gray-600">Departamento</label>
-              <select
-                [(ngModel)]="form.departamento_id"
-                (ngModelChange)="onDepartamentoChange($event)"
-                class="w-full p-2 border rounded-lg"
-              >
-                <option [ngValue]="null">-- Selecciona --</option>
-                <option *ngFor="let d of departamentos" [ngValue]="d.departamento_id">
-                  {{ d.nombre }}
-                </option>
-              </select>
-            </div>
-
-            <!-- PROVINCIA -->
-            <div>
-              <label class="text-sm text-gray-600">Provincia</label>
-              <select
-                [(ngModel)]="form.provincia_id"
-                (ngModelChange)="onProvinciaChange($event)"
-                [disabled]="!form.departamento_id"
-                class="w-full p-2 border rounded-lg disabled:opacity-50"
-              >
-                <option [ngValue]="null">-- Selecciona --</option>
-                <option *ngFor="let p of provincias" [ngValue]="p.provincia_id">
-                  {{ p.nombre }}
-                </option>
-              </select>
-            </div>
-
-            <!-- DISTRITO -->
-            <div>
-              <label class="text-sm text-gray-600">Distrito</label>
-              <select
-                [(ngModel)]="form.distrito_id"
-                [disabled]="!form.provincia_id"
-                class="w-full p-2 border rounded-lg disabled:opacity-50"
-              >
-                <option [ngValue]="null">-- Selecciona --</option>
-                <option *ngFor="let d of distritos" [ngValue]="d.distrito_id">
-                  {{ d.nombre }}
-                </option>
-              </select>
-            </div>
-
-            <!-- DIRECCION -->
-            <div>
-              <label class="text-sm text-gray-600">Direccion</label>
-              <textarea
-                [(ngModel)]="form.direccion"
-                rows="3"
-                class="w-full p-2 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Descripción del producto..."
-              ></textarea>
-            </div>    
-            
-            <!-- EMAIL -->
-            <div>
-              <label class="text-sm text-gray-600">Correo Electrónico</label>
-              <textarea
-                [(ngModel)]="form.email"
-                rows="3"
-                class="w-full p-2 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Descripción del producto..."
-              ></textarea>
-            </div>    
-
-            <label class="flex gap-2 items-center mb-4">
-              <input type="checkbox" [(ngModel)]="form.activo" />
-              Activo
-            </label>
-
-            <!-- BOTONES -->
-            <div class="flex justify-end gap-2 mt-5">
-              <button (click)="cancelar()" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
-                Cancelar
-              </button>
-
-              <button
-                (click)="guardar()"
-                class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-              >
-                Guardar
-              </button>
-            </div>
-          </div>
+        <div>
+          <label class="text-sm text-gray-600">Nombre</label>
+          <input [(ngModel)]="form.nombre"
+                 class="w-full p-2 border rounded-lg mt-1"/>
         </div>
+
+        <div>
+          <label class="text-sm text-gray-600">Documento de identidad</label>
+          <input [(ngModel)]="form.documento"
+                 class="w-full p-2 border rounded-lg mt-1"/>
+        </div>
+
+        <div>
+          <label class="text-sm text-gray-600">Teléfono</label>
+          <input [(ngModel)]="form.telefono"
+                 class="w-full p-2 border rounded-lg mt-1"/>
+        </div>
+
+        <!-- Departamento -->
+        <div>
+          <label class="text-sm text-gray-600">Departamento</label>
+          <select [(ngModel)]="form.departamento_id"
+                  (ngModelChange)="onDepartamentoChange($event)"
+                  class="w-full p-2 border rounded-lg mt-1">
+            <option [ngValue]="null">-- Selecciona --</option>
+            <option *ngFor="let d of departamentos"
+                    [ngValue]="d.departamento_id">
+              {{ d.nombre }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Provincia -->
+        <div>
+          <label class="text-sm text-gray-600">Provincia</label>
+          <select [(ngModel)]="form.provincia_id"
+                  (ngModelChange)="onProvinciaChange($event)"
+                  [disabled]="!form.departamento_id"
+                  class="w-full p-2 border rounded-lg mt-1 disabled:opacity-50">
+            <option [ngValue]="null">-- Selecciona --</option>
+            <option *ngFor="let p of provincias"
+                    [ngValue]="p.provincia_id">
+              {{ p.nombre }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Distrito -->
+        <div>
+          <label class="text-sm text-gray-600">Distrito</label>
+          <select [(ngModel)]="form.distrito_id"
+                  [disabled]="!form.provincia_id"
+                  class="w-full p-2 border rounded-lg mt-1 disabled:opacity-50">
+            <option [ngValue]="null">-- Selecciona --</option>
+            <option *ngFor="let d of distritos"
+                    [ngValue]="d.distrito_id">
+              {{ d.nombre }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Dirección -->
+        <div>
+          <label class="text-sm text-gray-600">Dirección</label>
+          <textarea [(ngModel)]="form.direccion"
+                    rows="2"
+                    placeholder="Av. Lima 123..."
+                    class="w-full p-2 border rounded-lg mt-1 resize-none">
+          </textarea>
+        </div>
+
+        <!-- Email -->
+        <div>
+          <label class="text-sm text-gray-600">Correo electrónico</label>
+          <input [(ngModel)]="form.email"
+                 type="email"
+                 class="w-full p-2 border rounded-lg mt-1"/>
+        </div>
+
+        <label class="flex gap-2 items-center text-sm">
+          <input type="checkbox" [(ngModel)]="form.activo"/>
+          Activo
+        </label>
+
+        <div class="flex justify-end gap-2 mt-5">
+          <button (click)="cancelar()"
+                  class="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded">
+            Cancelar
+          </button>
+          <button (click)="guardar()"
+                  class="px-4 py-2 bg-green-600 hover:bg-green-700
+                         text-white rounded">
+            Guardar
+          </button>
+        </div>
+
       </div>
     </div>
-  `,
+  </div>
+
+</div>
+  `
 })
 export class CLienteComponent implements OnInit {
-  clientes: any[] = [];
+
+  clientes:      any[] = [];
   departamentos: any[] = [];
-  provincias: any[] = [];
-  distritos: any[] = [];
-  loading = true;
-  dniBusqueda: string = '';
-
-  mostrarForm = false;
-  editando = false;
-
-  formKey = 0;
+  provincias:    any[] = [];
+  distritos:     any[] = [];
+  loading        = true;
+  dniBusqueda    = '';
+  mostrarForm    = false;
+  editando       = false;
 
   form: any = {
-    cliente_id: null,
-    nombre: '',
-    documento: '',
-    telefono: '',
-    direccion: '',
-    email: '',
+    cliente_id:      null,
+    nombre:          '',
+    documento:       '',
+    telefono:        '',
+    direccion:       '',
+    email:           '',
+    activo:          true,
+    departamento_id: null,
+    provincia_id:    null,
+    distrito_id:     null
   };
 
   constructor(
     private clienteService: ClientesService,
-    private ubigeoService: UbigeoService,
-    private cd: ChangeDetectorRef,
-  ) { }
+    private ubigeoService:  UbigeoService,
+    public  colors:         ColorService,
+    private cd:             ChangeDetectorRef
+  ) {}
 
-  ngOnInit(): void {
+  ngOnInit() {
     this.cargar();
-    this.cargarDepartamentos();
-  }
-
-  cargarDepartamentos() {
-  this.ubigeoService.getDepartamentos().subscribe({
-    next: (res) => {
+    this.ubigeoService.getDepartamentos().subscribe(res => {
       this.departamentos = res;
       this.cd.detectChanges();
-    },
-    error: (err) => console.error('Error departamentos:', err)
     });
   }
-  
-
-  onDepartamentoChange(departamentoId: number) {
-  this.form.provincia_id = null;
-  this.form.distrito_id = null;
-  this.provincias = [];
-  this.distritos = [];
-
-  if (departamentoId) {
-    this.ubigeoService.getProvincias(departamentoId).subscribe({
-      next: (res) => {
-        this.provincias = res;
-        this.cd.detectChanges();
-      },
-      error: (err) => console.error('Error provincias:', err),
-    });
-  }
-}
-
-onProvinciaChange(provinciaId: number) {
-  this.form.distrito_id = null;
-  this.distritos = [];
-
-  if (provinciaId) {
-    this.ubigeoService.getDistritos(provinciaId).subscribe({
-      next: (res) => {
-        this.distritos = res;
-        this.cd.detectChanges();
-      },
-      error: (err) => console.error('Error distritos:', err),
-    });
-  }
-}
 
   cargar() {
     this.loading = true;
-
     this.clienteService.getClientes().subscribe({
       next: (res: any) => {
         this.clientes = res;
-        this.loading = false;
+        this.loading  = false;
         this.cd.detectChanges();
       },
-      error: (err) => {
-        console.error(err);
-        this.loading = false;
-        this.cd.detectChanges();
-      },
+      error: () => { this.loading = false; this.cd.detectChanges(); }
+    });
+  }
+
+  onDepartamentoChange(id: number) {
+    this.form.provincia_id = null;
+    this.form.distrito_id  = null;
+    this.provincias        = [];
+    this.distritos         = [];
+    if (!id) return;
+    this.ubigeoService.getProvincias(id).subscribe(res => {
+      this.provincias = res;
+      this.cd.detectChanges();
+    });
+  }
+
+  onProvinciaChange(id: number) {
+    this.form.distrito_id = null;
+    this.distritos        = [];
+    if (!id) return;
+    this.ubigeoService.getDistritos(id).subscribe(res => {
+      this.distritos = res;
+      this.cd.detectChanges();
     });
   }
 
   nuevo() {
-    this.formKey++;
-
     this.form = {
-      usuario_id: null,
-      nombre: '',
-      documento: '',
-      telefono: '',
-      direccion: '',
-      email: '',
-      activo: true,
-      departamento_id: null,
-      provincia_id: null,
-      distrito_id: null,
+      cliente_id: null, nombre: '', documento: '', telefono: '',
+      direccion: '', email: '', activo: true,
+      departamento_id: null, provincia_id: null, distrito_id: null
     };
-    this.provincias = [];
-    this.distritos = [];
-    this.editando = false;
+    this.provincias  = [];
+    this.distritos   = [];
+    this.editando    = false;
     this.mostrarForm = true;
   }
 
-  editar(p: any) {
-    this.formKey++;
-
+  editar(c: any) {
     this.form = {
-      cliente_id: p.cliente_id,
-      nombre: p.nombre,
-      documento: p.documento,
-      telefono: p.telefono,
-      direccion: p.direccion,
-      email: p.email,
-      activo: p.activo,
-      departamento_id: p.departamento_id,
-      provincia_id: null,
-      distrito_id: null,
+      cliente_id:      c.cliente_id,
+      nombre:          c.nombre,
+      documento:       c.documento,
+      telefono:        c.telefono,
+      direccion:       c.direccion,
+      email:           c.email,
+      activo:          c.activo,
+      departamento_id: c.departamento_id,
+      provincia_id:    null,
+      distrito_id:     null
     };
+    this.provincias = [];
+    this.distritos  = [];
 
-    if (p.departamento_id) {
-      this.ubigeoService.getProvincias(p.departamento_id).subscribe({
-        next: (res) => {
-        this.provincias = res;
-        this.form.provincia_id = p.provincia_id;
+    if (c.departamento_id) {
+      this.ubigeoService.getProvincias(c.departamento_id).subscribe(res => {
+        this.provincias      = res;
+        this.form.provincia_id = c.provincia_id;
         this.cd.detectChanges();
-      if (p.provincia_id) {
-          this.ubigeoService.getDistritos(p.provincia_id).subscribe({
-            next: (res2) => {
-              this.distritos = res2;
-              this.form.distrito_id = p.distrito_id; 
-              this.cd.detectChanges();
-            },
-            error: (err) => console.error('Error distritos:', err),
+
+        if (c.provincia_id) {
+          this.ubigeoService.getDistritos(c.provincia_id).subscribe(res2 => {
+            this.distritos       = res2;
+            this.form.distrito_id = c.distrito_id;
+            this.cd.detectChanges();
           });
         }
-      },
-      error: (err) => console.error('Error provincias:', err),
-    });
-    }
-
-    if (p.provincia_id) {
-      this.ubigeoService.getDistritos(p.provincia_id).subscribe({
-        next: (res) => this.distritos = res,
       });
     }
 
-    this.editando = true;
+    this.editando    = true;
     this.mostrarForm = true;
   }
 
   guardar() {
-    if (!this.form.nombre) {
-      Swal.fire({
-        icon: 'warning',
-        title: 'Campo requerido',
-        text: 'El nombre del cliente es obligatorio',
-        confirmButtonText: 'Aceptar',
-      });
+    if (!this.form.nombre?.trim()) {
+      Swal.fire('Campo requerido', 'El nombre es obligatorio', 'warning');
       return;
     }
 
-    if (this.editando) {
-      this.clienteService.updateClientes(this.form.cliente_id, this.form).subscribe({
-        next: () => {
-          Swal.fire({
-            icon: 'success',
-            title: 'Actualizado',
-            text: 'Cliente actualizado satisfactoriamente',
-            confirmButtonText: 'Aceptar',
-          });
+    const op = this.editando
+      ? this.clienteService.updateClientes(this.form.cliente_id, this.form)
+      : this.clienteService.createClientes(this.form);
 
-          this.cargar();
-          this.cancelar();
-        },
-        error: (err) => {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: err.error || 'Error al actualizar',
-            confirmButtonText: 'Aceptar',
-          });
-        },
-      });
-    } else {
-      this.clienteService.createClientes(this.form).subscribe({
-        next: () => {
-          Swal.fire({
-            icon: 'success',
-            title: 'Registrado',
-            text: 'Cliente registrado satisfactoriamente',
-            confirmButtonText: 'Aceptar',
-          });
-
-          this.cargar();
-          this.cancelar();
-        },
-        error: (err) => {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: err.error || 'Error al registrar',
-            confirmButtonText: 'Aceptar',
-          });
-        },
-      });
-    }
+    op.subscribe({
+      next: () => {
+        Swal.fire('Listo',
+          this.editando ? 'Cliente actualizado' : 'Cliente registrado',
+          'success');
+        this.cargar();
+        this.cancelar();
+      },
+      error: (err) => Swal.fire('Error', err.error || 'No se pudo guardar', 'error')
+    });
   }
 
-  cancelar() {
-    this.mostrarForm = false;
-  }
+  cancelar() { this.mostrarForm = false; }
 
   buscarPorDni() {
-    if (!this.dniBusqueda) {
-      this.cargar();
-      return;
-    }
-
+    if (!this.dniBusqueda.trim()) { this.cargar(); return; }
     this.clienteService.getClienteDNI(this.dniBusqueda).subscribe({
       next: (res: any) => {
-        this.clientes = [res]; // 🔥 mostramos solo uno
+        this.clientes = [res];
         this.cd.detectChanges();
       },
       error: () => {
-        Swal.fire({
-          icon: 'warning',
-          title: 'No encontrado',
-          text: 'No existe cliente con ese DNI',
-        });
-
-        this.clientes = []; // limpia tabla
-      },
+        Swal.fire('No encontrado', 'No existe cliente con ese DNI', 'warning');
+        this.clientes = [];
+      }
     });
   }
 
   limpiar() {
-    this.dniBusqueda = '',
-      this.cargar();
+    this.dniBusqueda = '';
+    this.cargar();
   }
 }

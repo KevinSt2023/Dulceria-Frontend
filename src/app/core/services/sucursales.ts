@@ -24,4 +24,9 @@ export class SucursalesService {
   deleteSucursales(id: number) {
   return this.http.delete(`${environment.apiUrl}/Sucursales/${id}`);
   }
+
+  getSucursalesPickup() {
+    // ?todas=true le dice al backend que devuelva todas sin filtrar por sucursal
+    return this.http.get<any[]>(`${environment.apiUrl}/sucursales?todas=true`);
+  }
 }

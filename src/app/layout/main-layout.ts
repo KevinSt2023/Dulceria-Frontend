@@ -21,15 +21,20 @@ import { AuthService } from '../core/auth/auth';
 
       <!-- DASHBOARD — todos -->
       <div>
-        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">Dashboard</div>
-        <a routerLink="/app/dashboard" class="block p-2 rounded hover:bg-slate-700">
+        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">
+          Dashboard
+        </div>
+        <a routerLink="/app/dashboard"
+           class="block p-2 rounded hover:bg-slate-700">
           📊 Dashboard
         </a>
       </div>
 
       <!-- INVENTARIO — SuperAdmin y Admin -->
       <div *ngIf="isAdminOrSuper()">
-        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">Inventario</div>
+        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">
+          Inventario
+        </div>
         <button (click)="toggle('inv')" class="menu-btn">📦 Gestión</button>
         <div *ngIf="openMenu === 'inv'" class="submenu">
           <a routerLink="/app/productos">Productos</a>
@@ -37,12 +42,17 @@ import { AuthService } from '../core/auth/auth';
           <a routerLink="/app/categorias">Categorías</a>
           <a routerLink="/app/tipos_productos">Tipos</a>
           <a routerLink="/app/unidades">Unidades</a>
+          <a *ngIf="isAdmin()" routerLink="/app/catalogo-sede">
+            Mi catálogo
+          </a>
         </div>
       </div>
 
       <!-- VENTAS — SuperAdmin, Admin y Cajero -->
       <div *ngIf="isAdminOrSuper() || isCajero()">
-        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">Ventas</div>
+        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">
+          Ventas
+        </div>
         <button (click)="toggle('ventas')" class="menu-btn">💰 Facturación</button>
         <div *ngIf="openMenu === 'ventas'" class="submenu">
           <a routerLink="/app/pos">Punto de Venta</a>
@@ -51,9 +61,11 @@ import { AuthService } from '../core/auth/auth';
         </div>
       </div>
 
-      <!-- PEDIDOS — SuperAdmin, Admin, Vendedor, Produccion, Distribuidor -->
+      <!-- PEDIDOS -->
       <div *ngIf="isAdminOrSuper() || isVendedor() || isProduccion() || isDistribuidor()">
-        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">Pedidos</div>
+        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">
+          Pedidos
+        </div>
         <button (click)="toggle('pedidos')" class="menu-btn">🛵 Órdenes</button>
         <div *ngIf="openMenu === 'pedidos'" class="submenu">
           <a *ngIf="isAdminOrSuper() || isVendedor()"
@@ -65,7 +77,9 @@ import { AuthService } from '../core/auth/auth';
 
       <!-- CONFIGURACIÓN — SuperAdmin y Admin -->
       <div *ngIf="isAdminOrSuper()">
-        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">Configuración</div>
+        <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">
+          Configuración
+        </div>
         <button (click)="toggle('conf')" class="menu-btn">⚙️ Sistema</button>
         <div *ngIf="openMenu === 'conf'" class="submenu">
           <a routerLink="/app/usuarios">Usuarios</a>
@@ -78,11 +92,26 @@ import { AuthService } from '../core/auth/auth';
 
     </nav>
 
-    <div class="p-4 border-t border-slate-700 text-xs text-gray-400 text-center space-y-1">
-      <div class="inline-block px-2 py-1 rounded bg-slate-700 text-gray-300 text-xs">
-        {{ rolNombre }}
+    <!-- Pie del sidebar -->
+    <div class="p-4 border-t border-slate-700 space-y-2">
+
+      <!-- Sucursal activa -->
+      <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-800">
+        <span class="text-slate-400 text-xs">🏪</span>
+        <span class="text-xs text-slate-300 truncate">
+          {{ sucursalNombre }}
+        </span>
       </div>
-      <div>v1.0 ERP</div>
+
+      <!-- Rol badge -->
+      <div class="flex justify-between items-center">
+        <span class="px-2 py-1 rounded bg-slate-700
+                     text-gray-300 text-xs font-medium">
+          {{ rolNombre }}
+        </span>
+        <span class="text-gray-500 text-xs">v1.0 ERP</span>
+      </div>
+
     </div>
 
   </aside>
@@ -90,18 +119,18 @@ import { AuthService } from '../core/auth/auth';
   <!-- MAIN -->
   <div class="flex-1 flex flex-col overflow-hidden">
 
-    <header class="bg-white shadow-sm px-6 py-4 flex justify-between items-center">
+    <header class="bg-white shadow-sm px-6 py-4
+                   flex justify-between items-center">
       <h1 class="text-lg font-semibold text-gray-700">Panel de Control</h1>
 
       <div class="flex items-center gap-4">
         <div class="text-right">
           <p class="text-gray-700 font-medium text-sm">{{ email }}</p>
-          <p class="text-gray-400 text-xs">
-            {{ isSuperAdmin() ? 'Todas las sucursales' : 'Sucursal #' + sucursalId }}
-          </p>
+          <p class="text-gray-400 text-xs">{{ sucursalNombre }}</p>
         </div>
         <button (click)="logout()"
-                class="bg-red-500 text-white px-4 py-1 rounded hover:bg-red-600 transition text-sm">
+                class="bg-red-500 text-white px-4 py-1 rounded
+                       hover:bg-red-600 transition text-sm">
           Salir
         </button>
       </div>
@@ -116,7 +145,7 @@ import { AuthService } from '../core/auth/auth';
   </div>
 
 </div>
-`,
+  `,
   styles: [`
 .menu-btn {
   width: 100%;
@@ -138,30 +167,32 @@ import { AuthService } from '../core/auth/auth';
 })
 export class MainLayout implements OnInit {
 
-  openMenu:   string | null = null;
-  rolNombre   = '';
-  email       = '';
-  sucursalId  = 0;
+  openMenu:      string | null = null;
+  rolNombre      = '';
+  email          = '';
+  sucursalId     = 0;
+  sucursalNombre = '';
 
   constructor(private auth: AuthService) {}
 
   ngOnInit() {
-    const claims   = this.auth.getClaims();
-    this.rolNombre  = this.auth.getRolNombre();
-    this.email      = claims?.email      ?? '';
-    this.sucursalId = claims?.sucursal_id ?? 0;
+    const claims       = this.auth.getClaims();
+    this.rolNombre      = this.auth.getRolNombre();
+    this.sucursalNombre = this.auth.getSucursalNombre();
+    this.email          = claims?.email      ?? '';
+    this.sucursalId     = claims?.sucursal_id ?? 0;
   }
 
   toggle(menu: string) {
     this.openMenu = this.openMenu === menu ? null : menu;
   }
 
-  logout() { this.auth.logout(); }
-
-  isSuperAdmin():   boolean { return this.auth.isSuperAdmin(); }
-  isAdminOrSuper(): boolean { return this.auth.isAdminOrSuper(); }
-  isVendedor():     boolean { return this.auth.isVendedor(); }
-  isProduccion():   boolean { return this.auth.isProduccion(); }
-  isCajero():       boolean { return this.auth.isCajero(); }
-  isDistribuidor(): boolean { return this.auth.isDistribuidor(); }
+  logout()         { this.auth.logout(); }
+  isAdmin():  boolean { return this.auth.isAdmin(); }
+  isSuperAdmin():  boolean { return this.auth.isSuperAdmin(); }
+  isAdminOrSuper():boolean { return this.auth.isAdminOrSuper(); }
+  isVendedor():    boolean { return this.auth.isVendedor(); }
+  isProduccion():  boolean { return this.auth.isProduccion(); }
+  isCajero():      boolean { return this.auth.isCajero(); }
+  isDistribuidor():boolean { return this.auth.isDistribuidor(); }
 }

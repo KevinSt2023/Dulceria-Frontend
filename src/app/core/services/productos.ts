@@ -14,6 +14,10 @@ export class ProductosService {
     return this.http.get(`${environment.apiUrl}/productos`);
   }
 
+  getProductosDisponibles() {
+    return this.http.get(`${environment.apiUrl}/productos/disponibles`);
+  }
+
   createProducto(data: any) {
   return this.http.post(`${environment.apiUrl}/productos`, data);
   }

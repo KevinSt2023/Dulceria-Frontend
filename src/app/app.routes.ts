@@ -69,7 +69,7 @@ export const routes: Routes = [
       // Pedidos — Administrador y Vendedor
       {
         path: 'pedidos',
-        canActivate: [roleGuard([1, 2,0])],
+        canActivate: [roleGuard([1, 2,3,0])],
         loadComponent: () => import('./features/pedidos/pedidos').then(m => m.PedidosComponent)
       },
 
@@ -100,6 +100,20 @@ export const routes: Routes = [
         path: 'clientes',
         canActivate: [roleGuard([1,0])],
         loadComponent: () => import('./features/clientes/clientes').then(m => m.CLienteComponent)
+      },
+      
+      {
+        path: 'seguimiento',
+        loadComponent: () =>
+          import('./features/seguimiento/seguimiento')
+            .then(m => m.SeguimientoComponent)
+      },
+
+      {
+        path: 'catalogo-sede',
+        loadComponent: () =>
+          import('./features/producto-sucursal/producto-sucursal')
+            .then(m => m.ProductoSucursalComponent)
       },
 
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
