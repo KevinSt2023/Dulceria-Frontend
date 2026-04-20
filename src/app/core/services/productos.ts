@@ -29,4 +29,10 @@ export class ProductosService {
   deleteProducto(id: number) {
   return this.http.delete(`${environment.apiUrl}/productos/${id}`);
   }
+
+  buscarProducto(q: string) {
+  return this.http.get<any[]>(
+    `${environment.apiUrl}/productos/buscar?q=${encodeURIComponent(q)}`
+  );
+  }
 }

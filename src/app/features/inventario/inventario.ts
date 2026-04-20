@@ -9,7 +9,7 @@ import Swal from 'sweetalert2';
 
 @Component({
   selector: 'app-inventario',
-  standalone: true,
+  standalone: true,  
   imports: [CommonModule, FormsModule],
   template: `
 <div>
@@ -403,6 +403,7 @@ export class InventarioComponent implements OnInit {
   mostrarKardex     = false;
   cargandoProductos = false;
   guardando         = false;
+  private alertaMostrada = false;
 
   paginaActual       = 1;
   registrosPorPagina = 8;
@@ -437,41 +438,43 @@ export class InventarioComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-    this.cargar();
-    this.almacenesService.getAlmacenes().subscribe((res: any) => {
-      this.almacenes = res;
-    });
-  }
+  this.cargar(true); // ← true = mostrar alerta
+  this.almacenesService.getAlmacenes().subscribe((res: any) => {
+    this.almacenes = res;
+  });
+}
 
-  cargar() {
-    this.inventarioService.getInventario().subscribe((res: any) => {
-      this.inventario = res;
-      this.sucursales = [...new Set<string>(
-        res.map((i: any) => i.sucursalnombre)
-      )].sort();
-      this.aplicarFiltros();
+  cargar(mostrarAlerta = false) {
+  this.inventarioService.getInventario().subscribe((res: any) => {
+    this.inventario = res;
+    this.sucursales = [...new Set<string>(
+      res.map((i: any) => i.sucursalnombre)
+    )].sort();
+    this.aplicarFiltros();
 
+    // ← Solo mostrar alertas en la carga inicial
+    if (mostrarAlerta && !this.alertaMostrada) {
+      this.alertaMostrada = true;
       const alertas: string[] = [];
       res.forEach((i: any) => {
         if (i.stock_actual < i.stock_minimo && i.stock_minimo > 0)
-          alertas.push(`🔴 <b>${i.nombreproducto}</b> (${i.sucursalnombre}) — stock bajo: ${i.stock_actual}/${i.stock_minimo} mín`);
+          alertas.push(`🔴 <b>${i.nombreproducto}</b> (${i.sucursalnombre}) — stock: ${i.stock_actual}/${i.stock_minimo} mín`);
         if (i.stock_actual > i.stock_maximo && i.stock_maximo > 0)
           alertas.push(`🟡 <b>${i.nombreproducto}</b> (${i.sucursalnombre}) — stock alto: ${i.stock_actual}/${i.stock_maximo} máx`);
       });
-
       if (alertas.length > 0) {
         Swal.fire({
-          title: 'Alertas de inventario',
-          html: alertas.join('<br>'),
-          icon: 'warning',
-          confirmButtonText: 'Entendido',
-          confirmButtonColor: '#2563eb',
-          allowOutsideClick: false
+          title:              'Alertas de inventario',
+          html:               alertas.join('<br>'),
+          icon:               'warning',
+          confirmButtonText:  'Entendido',
+          confirmButtonColor: '#2563eb'
         });
       }
-      this.cd.detectChanges();
-    });
-  }
+    }
+    this.cd.detectChanges();
+  });
+}
 
   aplicarFiltros() {
     let r = [...this.inventario];

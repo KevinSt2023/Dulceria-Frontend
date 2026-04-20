@@ -158,13 +158,15 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
 
           <div class="flex gap-2 mb-3">
             <input [(ngModel)]="dniBusqueda"
-                   placeholder="Buscar por DNI / documento"
-                   class="flex-1 p-2 border rounded"
-                   (keyup.enter)="buscarCliente()"/>
+                  placeholder="DNI (8 dígitos) o RUC (11 dígitos)"
+                  maxlength="11"
+                  class="flex-1 p-2 border rounded"
+                  (keyup.enter)="buscarCliente()"/>
             <button (click)="buscarCliente()"
-                    [disabled]="buscandoCliente"
+                    [disabled]="buscandoCliente ||
+                                (dniBusqueda.length !== 8 && dniBusqueda.length !== 11)"
                     class="bg-blue-600 text-white px-4 rounded disabled:opacity-50">
-              {{ buscandoCliente ? 'Buscando...' : 'Buscar' }}
+              {{ buscandoCliente ? '⏳' : '🔍' }}
             </button>
           </div>
 
@@ -710,32 +712,80 @@ export class PedidosComponent implements OnInit {
   }
 
   buscarCliente() {
-    if (!this.dniBusqueda.trim()) {
-      Swal.fire('¡Cuidado!', 'Ingrese un número de documento', 'warning');
-      return;
-    }
-    if (this.buscandoCliente) return;
-    this.buscandoCliente = true;
-    this.cd.detectChanges();
-
-    this.clientesService.getClienteDNI(this.dniBusqueda).subscribe({
-      next: (res: any) => {
-        this.buscandoCliente    = false;
-        this.clienteEncontrado  = res;
-        this.form.cliente_id    = res.cliente_id;
-        this.mostrarFormCliente = false;
-        this.cd.detectChanges();
-      },
-      error: () => {
-        this.buscandoCliente    = false;
-        this.clienteEncontrado  = null;
-        this.mostrarFormCliente = true;
-        this.nuevoCliente = { nombre: '', telefono: '', direccion: '', email: '' };
-        this.cd.detectChanges();
-        Swal.fire('Aviso', 'Cliente no encontrado — regístrelo', 'warning');
-      }
-    });
+  if (!this.dniBusqueda.trim()) {
+    Swal.fire('¡Cuidado!', 'Ingrese un número de documento', 'warning');
+    return;
   }
+  if (this.buscandoCliente) return;
+
+  this.buscandoCliente = true;
+  this.cd.detectChanges();
+
+  // Primero busca en BD
+  this.clientesService.getClienteDNI(this.dniBusqueda).subscribe({
+    next: (res: any) => {
+      this.buscandoCliente    = false;
+      this.clienteEncontrado  = res;
+      this.form.cliente_id    = res.cliente_id;
+      this.mostrarFormCliente = false;
+      this.cd.detectChanges();
+    },
+    error: () => {
+      // No está en BD → consultar RENIEC/SUNAT
+      const esRUC = this.dniBusqueda.length === 11;
+      const obs   = esRUC
+        ? this.clientesService.consultarRUC(this.dniBusqueda)
+        : this.clientesService.consultarDNI(this.dniBusqueda);
+
+      obs.subscribe({
+        next: (res: any) => {
+          this.buscandoCliente = false;
+
+          if (res.nombre) {
+            // Encontrado en RENIEC/SUNAT — precargar formulario
+            this.nuevoCliente = {
+              nombre:    res.nombre,
+              documento: res.documento,
+              telefono:  '',
+              email:     '',
+              direccion: res.direccion ?? ''
+            };
+            this.mostrarFormCliente = true;
+            this.clienteEncontrado  = null;
+            Swal.fire({
+              icon:  'info',
+              title: esRUC ? '✓ RUC encontrado en SUNAT'
+                           : '✓ DNI encontrado en RENIEC',
+              text:  `${res.nombre} — confirma los datos y guarda`,
+              timer: 2500,
+              showConfirmButton: false
+            });
+          } else {
+            // Tampoco en RENIEC — mostrar formulario vacío
+            this.nuevoCliente       = {
+              nombre: '', telefono: '', email: '', direccion: ''
+            };
+            this.mostrarFormCliente = true;
+            this.clienteEncontrado  = null;
+            Swal.fire('No encontrado',
+              'Documento no encontrado. Ingresa los datos manualmente.', 'warning');
+          }
+          this.cd.detectChanges();
+        },
+        error: () => {
+          this.buscandoCliente    = false;
+          this.mostrarFormCliente = true;
+          this.nuevoCliente       = {
+            nombre: '', telefono: '', email: '', direccion: ''
+          };
+          this.cd.detectChanges();
+          Swal.fire('No encontrado',
+            'Ingresa los datos del cliente manualmente.', 'warning');
+        }
+      });
+    }
+  });
+}
 
   crearCliente() {
     if (!this.nuevoCliente.nombre?.trim()) {

@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { CategoriasService } from '../../core/services/categorias';
 import { TiposProductosService } from '../../core/services/tipos-productos';
 import { UnidadesService } from '../../core/services/unidades';
+import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
 
 @Component({
@@ -301,12 +302,21 @@ export class ProductosComponent implements OnInit {
     private cd:               ChangeDetectorRef
   ) {}
 
+
+
   ngOnInit(): void {
-    this.cargar();
-    this.categoriaService.getCategorias().subscribe((res: any) => this.categorias = res);
-    this.tiposService.getTipos().subscribe((res: any) => this.tipos = res);
-    this.unidadesService.getUnidades().subscribe((res: any) => this.unidades = res);
-  }
+  this.cargar();
+  forkJoin({
+    categorias: this.categoriaService.getCategorias(),
+    tipos:      this.tiposService.getTipos(),
+    unidades:   this.unidadesService.getUnidades()
+  }).subscribe((res: any) => {
+    this.categorias = res.categorias;
+    this.tipos      = res.tipos;
+    this.unidades   = res.unidades;
+    this.cd.detectChanges();
+  });
+}
 
   cargar() {
     this.loading = true;

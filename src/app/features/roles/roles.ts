@@ -70,7 +70,7 @@ import Swal from 'sweetalert2';
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       >
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 animate-fade-in">
-          <h3 class="text-lg font-bold mb-4">{{ editando ? 'Editar' : 'Nuevo' }} Editar Rol</h3>
+          <h3 class="text-lg font-bold mb-4">{{ editando ? 'Editar' : 'Nuevo' }} Rol</h3>
 
           <div class="space-y-3">
             <!-- NOMBRE -->

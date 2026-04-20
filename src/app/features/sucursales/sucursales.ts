@@ -144,10 +144,7 @@ export class SucursalesComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.cargar();
-    this.sucursalService.getSucursales().subscribe((res: any) => {
-      this.sucursales = res;
-    });
+    this.cargar();    
   }
 
   cargar() {

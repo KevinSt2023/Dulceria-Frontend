@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, ChangeDetectorRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/auth/auth';
 import { Router } from '@angular/router';
@@ -13,42 +13,38 @@ import { CommonModule } from '@angular/common';
      class="min-h-screen flex transition-colors duration-300">
 
   <!-- PANEL IZQUIERDO — Branding -->
-<div class="hidden lg:flex lg:w-1/2 flex-col items-center
+  <div class="hidden lg:flex lg:w-1/2 flex-col items-center
               justify-center relative overflow-hidden"
-      [style]="darkMode
-        ? 'background: linear-gradient(160deg, #0d1117 0%, #161b22 50%, #0d1b2a 100%)'
-        : 'background: linear-gradient(160deg, #e8f4fd 0%, #c8e6f5 40%, #7bb8e0 100%)'">
+       [style]="darkMode
+         ? 'background: linear-gradient(160deg, #0d1117 0%, #161b22 50%, #0d1b2a 100%)'
+         : 'background: linear-gradient(160deg, #e8f4fd 0%, #c8e6f5 40%, #7bb8e0 100%)'">
 
-    <!-- Círculos decorativos suaves -->
     <div class="absolute top-[-100px] left-[-100px] w-96 h-96 rounded-full"
-        [style]="darkMode
-          ? 'background: radial-gradient(circle, rgba(14,165,233,0.08), transparent 70%)'
-          : 'background: radial-gradient(circle, rgba(255,255,255,0.5), transparent 70%)'">
+         [style]="darkMode
+           ? 'background: radial-gradient(circle, rgba(14,165,233,0.08), transparent 70%)'
+           : 'background: radial-gradient(circle, rgba(255,255,255,0.5), transparent 70%)'">
     </div>
     <div class="absolute bottom-[-80px] right-[-80px] w-[500px] h-[500px] rounded-full"
-        [style]="darkMode
-          ? 'background: radial-gradient(circle, rgba(6,182,212,0.06), transparent 70%)'
-          : 'background: radial-gradient(circle, rgba(186,230,253,0.6), transparent 70%)'">
+         [style]="darkMode
+           ? 'background: radial-gradient(circle, rgba(6,182,212,0.06), transparent 70%)'
+           : 'background: radial-gradient(circle, rgba(186,230,253,0.6), transparent 70%)'">
     </div>
 
-    <!-- Logo sin card — flota directo sobre el fondo -->
     <div class="relative z-10 flex flex-col items-center justify-center w-full px-16">
-
       <img src="assets/images/sophitech.jpeg"
-          alt="SophiTech ERP"
-          class="w-full max-w-lg object-contain transition-transform
+           alt="SophiTech ERP"
+           class="w-full max-w-lg object-contain transition-transform
                   duration-500 hover:scale-105"
-          [style]="darkMode
-            ? 'filter: brightness(0.95) drop-shadow(0 0 40px rgba(14,165,233,0.15))'
-            : 'filter: drop-shadow(0 8px 32px rgba(14,165,233,0.15))'"
-          onerror="this.style.display='none'"/>
+           [style]="darkMode
+             ? 'filter: brightness(0.95) drop-shadow(0 0 40px rgba(14,165,233,0.15))'
+             : 'filter: drop-shadow(0 8px 32px rgba(14,165,233,0.15))'"
+           onerror="this.style.display='none'"/>
 
-      <!-- Badges de módulos -->
       <div class="flex flex-wrap justify-center gap-2 mt-10">
         <span *ngFor="let m of modulos"
               class="px-3 py-1.5 rounded-full text-xs font-medium
-                    backdrop-blur-sm border transition-all duration-200
-                    hover:scale-105 cursor-default"
+                     backdrop-blur-sm border transition-all duration-200
+                     hover:scale-105 cursor-default"
               [ngClass]="darkMode
                 ? 'bg-white/5 border-white/8 text-slate-400 hover:bg-white/10'
                 : 'bg-white/50 border-white/70 text-slate-600 hover:bg-white/70'">
@@ -57,11 +53,10 @@ import { CommonModule } from '@angular/common';
       </div>
 
       <p class="mt-8 text-xs tracking-[0.2em] uppercase font-light"
-        [ngClass]="darkMode ? 'text-slate-600' : 'text-slate-500'">
+         [ngClass]="darkMode ? 'text-slate-600' : 'text-slate-500'">
         Solución para negocios en crecimiento
       </p>
     </div>
-
   </div>
 
   <!-- PANEL DERECHO — Formulario -->
@@ -106,11 +101,15 @@ import { CommonModule } from '@angular/common';
         </p>
       </div>
 
-      <!-- Error -->
+      <!-- Alerta error -->
       <div *ngIf="errorMsg"
-           class="mb-4 px-4 py-3 bg-red-50 border border-red-200
-                  rounded-xl text-sm text-red-600 flex items-center gap-2">
-        <span>⚠️</span> {{ errorMsg }}
+           class="mb-4 px-4 py-3 rounded-xl text-sm flex items-center gap-2
+                  border animate-pulse"
+           [ngClass]="darkMode
+             ? 'bg-red-900/30 border-red-700 text-red-400'
+             : 'bg-red-50 border-red-200 text-red-600'">
+        <span class="text-base flex-shrink-0">⚠️</span>
+        <span>{{ errorMsg }}</span>
       </div>
 
       <!-- Formulario -->
@@ -152,7 +151,9 @@ import { CommonModule } from '@angular/common';
             <button (click)="mostrarPassword = !mostrarPassword"
                     type="button"
                     class="absolute right-3 top-3 text-sm transition-colors"
-                    [ngClass]="darkMode ? 'text-slate-400 hover:text-slate-200' : 'text-gray-400 hover:text-gray-600'">
+                    [ngClass]="darkMode
+                      ? 'text-slate-400 hover:text-slate-200'
+                      : 'text-gray-400 hover:text-gray-600'">
               {{ mostrarPassword ? '🙈' : '👁️' }}
             </button>
           </div>
@@ -166,13 +167,10 @@ import { CommonModule } from '@angular/common';
                        disabled:opacity-50 disabled:cursor-not-allowed
                        active:scale-95"
                 style="background: linear-gradient(135deg, #0369a1, #0ea5e9, #06b6d4)">
-
-          <!-- Shimmer al cargar -->
           <span *ngIf="cargando"
                 class="absolute inset-0 bg-gradient-to-r from-transparent
                        via-white/20 to-transparent animate-pulse">
           </span>
-
           <span class="relative">
             {{ cargando ? 'Ingresando...' : 'Ingresar al sistema' }}
           </span>
@@ -180,7 +178,7 @@ import { CommonModule } from '@angular/common';
 
       </div>
 
-      <!-- Divider info -->
+      <!-- Badges -->
       <div class="mt-6 pt-6 border-t text-center"
            [ngClass]="darkMode ? 'border-slate-800' : 'border-gray-100'">
         <div class="flex justify-center gap-4 flex-wrap">
@@ -226,17 +224,20 @@ export class Login {
 
   constructor(
     private auth:   AuthService,
-    private router: Router
+    private router: Router,
+    private cd:     ChangeDetectorRef  // ← estaba faltando en el import
   ) {}
 
   login() {
     if (!this.email.trim() || !this.password.trim()) {
       this.errorMsg = 'Ingresa tu correo y contraseña';
+      this.cd.detectChanges();
       return;
     }
 
     this.cargando = true;
     this.errorMsg = '';
+    this.cd.detectChanges();
 
     this.auth.login(this.email, this.password).subscribe({
       next: (res: any) => {
@@ -245,9 +246,20 @@ export class Login {
       },
       error: (err) => {
         this.cargando = false;
-        this.errorMsg = err?.error?.message
-                        ?? err?.error
-                        ?? 'Credenciales incorrectas';
+
+        if (err.status === 401) {
+          this.errorMsg = 'Correo o contraseña incorrectos';
+        } else if (err.status === 0) {
+          this.errorMsg = 'No se pudo conectar al servidor';
+        } else if (typeof err.error === 'string') {
+          this.errorMsg = err.error;
+        } else if (err.error?.message) {
+          this.errorMsg = err.error.message;
+        } else {
+          this.errorMsg = 'Error al iniciar sesión. Intenta nuevamente.';
+        }
+
+        this.cd.detectChanges(); // ← fuerza la actualización de la vista
       }
     });
   }

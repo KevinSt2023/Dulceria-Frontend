@@ -130,6 +130,13 @@ export const routes: Routes = [
             .then(m => m.ConfiguracionPagoComponent)
       },
 
+      {
+        path: 'pos',
+        loadComponent: () =>
+          import('./features/pos/pos')
+            .then(m => m.PosComponent)
+      },
+
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]
   },

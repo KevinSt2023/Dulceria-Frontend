@@ -22,4 +22,21 @@ export class ClientesService {
   getClienteDNI(documento: string) {
     return this.http.get(`${environment.apiUrl}/cliente/buscar?documento=${documento}`);
   }
+
+  consultarDNI(dni: string) {
+  return this.http.get<any>(
+    `${environment.apiUrl}/cliente/consultar-dni/${dni}`
+  );
+}
+
+consultarRUC(ruc: string) {
+  return this.http.get<any>(
+    `${environment.apiUrl}/cliente/consultar-ruc/${ruc}`
+  );
+}
+
+crearClienteRapido(data: any) {
+  return this.http.post<any>(`${environment.apiUrl}/cliente`, data);
+}
+
 }

@@ -81,9 +81,15 @@ import Swal from 'sweetalert2';
         <div *ngIf="m.qr_preview || m.tiene_qr">
           <label class="text-xs text-gray-500 block mb-1">QR actual</label>
           <div class="flex items-center gap-3">
-            <img [src]="m.qr_preview || ('data:image/png;base64,' + m.qr_base64)"
-                 class="w-24 h-24 object-contain border rounded-xl p-1"
-                 alt="QR"/>
+            <img *ngIf="m.qr_preview"
+                [src]="m.qr_preview"
+                class="w-24 h-24 object-contain border rounded-xl p-1"
+                alt="QR"/>
+            <div *ngIf="!m.qr_preview && m.tiene_qr"
+                class="w-24 h-24 border rounded-xl flex items-center
+                        justify-center text-gray-400 text-xs">
+              Cargando...
+            </div>
             <button (click)="limpiarQR(m)"
                     class="text-xs text-red-500 hover:text-red-700">
               Eliminar QR
@@ -164,28 +170,40 @@ export class ConfiguracionPagoComponent implements OnInit {
   ngOnInit() { this.cargar(); }
 
   cargar() {
-    this.loading = true;
-    this.service.getConfig().subscribe({
-      next: (res: any[]) => {
-        res.forEach(c => {
-          const m = this.metodos.find(x => x.tipo === c.tipo);
-          if (m) {
-            m.tiene_qr      = c.tiene_qr;
-            m.form.numero   = c.numero   ?? '';
-            m.form.titular  = c.titular  ?? '';
-            m.form.banco    = c.banco    ?? '';
-            m.form.activo   = c.activo;
+  this.loading = true;
+  this.service.getConfig().subscribe({
+    next: (res: any[]) => {
+      res.forEach(c => {
+        const m = this.metodos.find(x => x.tipo === c.tipo);
+        if (m) {
+          m.tiene_qr     = c.tiene_qr;
+          m.form.numero  = c.numero  ?? '';
+          m.form.titular = c.titular ?? '';
+          m.form.banco   = c.banco   ?? '';
+          m.form.activo  = c.activo;
+
+          // ← Si tiene QR, cargarlo para mostrarlo
+          if (c.tiene_qr) {
+            this.service.getQR(c.tipo).subscribe({
+              next: (qr: any) => {
+                m.qr_base64  = qr.qr_base64;
+                m.qr_preview = 'data:image/png;base64,' + qr.qr_base64;
+                this.cd.detectChanges();
+              },
+              error: () => {} // si falla silencioso
+            });
           }
-        });
-        this.loading = false;
-        this.cd.detectChanges();
-      },
-      error: () => {
-        this.loading = false;
-        this.cd.detectChanges();
-      }
-    });
-  }
+        }
+      });
+      this.loading = false;
+      this.cd.detectChanges();
+    },
+    error: () => {
+      this.loading = false;
+      this.cd.detectChanges();
+    }
+  });
+}
 
   onFileChange(event: any, m: any) {
     const file = event.target.files[0];
