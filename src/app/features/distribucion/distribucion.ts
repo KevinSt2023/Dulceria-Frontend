@@ -57,9 +57,12 @@ import { ColorService } from '../../core/services/color';
               <span class="font-bold text-gray-800 text-lg">
                 #{{ p.pedido_id }}
               </span>
-              <span class="bg-green-100 text-green-700 text-xs
-                           px-2 py-0.5 rounded-full font-medium">
-                LISTO
+              <!-- Badge estado dinámico -->
+              <span [ngClass]="p.estado_pedido_id === 4
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-blue-100 text-blue-700'"
+                    class="text-xs px-2 py-0.5 rounded-full font-medium">
+                {{ p.estado_pedido_id === 4 ? 'LISTO' : 'DESPACHADO' }}
               </span>
             </div>
             <p class="font-semibold text-gray-700">{{ p.cliente }}</p>
@@ -73,7 +76,6 @@ import { ColorService } from '../../core/services/color';
                          px-2.5 py-1 rounded-full font-medium">
               🛵 Delivery
             </span>
-            <!-- Badge método de pago -->
             <span *ngIf="p.pagado"
                   class="bg-green-100 text-green-700 text-xs
                          px-2 py-0.5 rounded-full font-medium">
@@ -142,12 +144,18 @@ import { ColorService } from '../../core/services/color';
                 class="w-full py-2.5 rounded-xl text-sm font-semibold
                        text-white transition-all duration-200
                        disabled:opacity-50 active:scale-95"
-                [style]="p.pagado
-                  ? 'background: linear-gradient(135deg, #065f46, #10b981)'
-                  : 'background: linear-gradient(135deg, #0369a1, #0ea5e9)'">
+                [style]="p.estado_pedido_id === 4
+                  ? 'background: linear-gradient(135deg, #ea580c, #f97316)'
+                  : p.pagado
+                    ? 'background: linear-gradient(135deg, #065f46, #10b981)'
+                    : 'background: linear-gradient(135deg, #0369a1, #0ea5e9)'">
           {{ procesando === p.pedido_id
               ? 'Procesando...'
-              : p.pagado ? '✓ Confirmar entrega' : '💵 Cobrar y entregar' }}
+              : p.estado_pedido_id === 4
+                ? '🛵 Despachar'
+                : p.pagado
+                  ? '✓ Confirmar entrega'
+                  : '💵 Cobrar y entregar' }}
         </button>
       </div>
 
@@ -160,7 +168,6 @@ import { ColorService } from '../../core/services/color';
               justify-center z-50 p-4">
     <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm">
 
-      <!-- Cabecera -->
       <div class="flex justify-between items-center mb-4">
         <div>
           <h3 class="text-lg font-bold">Registrar cobro</h3>
@@ -173,7 +180,6 @@ import { ColorService } from '../../core/services/color';
                 class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
       </div>
 
-      <!-- Total a cobrar -->
       <div class="bg-green-50 border border-green-200 rounded-xl
                   p-4 text-center mb-4">
         <p class="text-xs text-green-600 mb-1">Total a cobrar</p>
@@ -182,7 +188,6 @@ import { ColorService } from '../../core/services/color';
         </p>
       </div>
 
-      <!-- Método de pago -->
       <div class="mb-4">
         <label class="text-xs text-gray-500 mb-2 block font-medium">
           Método de pago
@@ -200,7 +205,6 @@ import { ColorService } from '../../core/services/color';
         </div>
       </div>
 
-      <!-- Monto recibido -->
       <div class="mb-4">
         <label class="text-xs text-gray-500 mb-1 block font-medium">
           Monto recibido
@@ -212,7 +216,6 @@ import { ColorService } from '../../core/services/color';
                       font-bold focus:ring-2 focus:ring-cyan-400 outline-none"/>
       </div>
 
-      <!-- Vuelto -->
       <div *ngIf="montoCobrado > pedidoCobro?.total"
            class="bg-blue-50 border border-blue-200 rounded-xl
                   p-3 text-center mb-4">
@@ -222,7 +225,6 @@ import { ColorService } from '../../core/services/color';
         </p>
       </div>
 
-      <!-- Alerta monto insuficiente -->
       <div *ngIf="montoCobrado > 0 && montoCobrado < pedidoCobro?.total"
            class="bg-red-50 border border-red-200 rounded-xl
                   p-3 text-center mb-4">
@@ -232,7 +234,6 @@ import { ColorService } from '../../core/services/color';
         </p>
       </div>
 
-      <!-- Botones -->
       <div class="flex gap-2">
         <button (click)="mostrarModalCobro = false"
                 class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200
@@ -259,11 +260,10 @@ import { ColorService } from '../../core/services/color';
 })
 export class DistribucionComponent implements OnInit {
 
-  pedidos:   any[] = [];
-  loading         = true;
+  pedidos:    any[] = [];
+  loading          = true;
   procesando: number | null = null;
 
-  // Modal cobro
   mostrarModalCobro = false;
   pedidoCobro: any  = null;
   montoCobrado      = 0;
@@ -299,27 +299,72 @@ export class DistribucionComponent implements OnInit {
     });
   }
 
-  // ─────────────────────────────────────────────
+  // ── Acción principal según estado ──
   abrirModalCobro(p: any) {
-    // Pago anticipado — solo confirmar entrega
-    if (p.pagado) {
-      this.confirmarEntregaDirecta(p);
+    if (p.estado_pedido_id === 4) {
+      // LISTO → despachar primero
+      this.despacharPedido(p);
       return;
     }
-    // Contra entrega — abrir modal de cobro
-    this.pedidoCobro       = p;
-    this.montoCobrado      = p.total;
-    this.metodoCobro       = 'efectivo';
-    this.mostrarModalCobro = true;
-    this.cd.detectChanges();
+    // DESPACHADO → cobrar o confirmar entrega
+    if (p.pagado) {
+      this.confirmarEntregaDirecta(p);
+    } else {
+      this.pedidoCobro       = p;
+      this.montoCobrado      = p.total;
+      this.metodoCobro       = 'efectivo';
+      this.mostrarModalCobro = true;
+      this.cd.detectChanges();
+    }
   }
 
+  // ── Despachar pedido LISTO → DESPACHADO ──
+  despacharPedido(p: any) {
+    Swal.fire({
+      title:             '¿Confirmar despacho?',
+      html:              `Pedido <b>#${p.pedido_id}</b> — <b>${p.cliente}</b>
+                          <br><small style="color:#6b7280">
+                            El pedido saldrá a ruta de entrega
+                          </small>`,
+      icon:              'question',
+      showCancelButton:  true,
+      confirmButtonText: '🛵 Sí, despachar',
+      cancelButtonText:  'Cancelar',
+      confirmButtonColor: '#f97316'
+    }).then(r => {
+      if (!r.isConfirmed) return;
+      this.procesando = p.pedido_id;
+      this.cd.detectChanges();
+
+      this.distribucionService.marcarDespachado(p.pedido_id).subscribe({
+        next: () => {
+          this.procesando = null;
+          Swal.fire({
+            icon:  'success',
+            title: '¡Despachado!',
+            text:  'El pedido está en ruta de entrega',
+            timer: 2000,
+            showConfirmButton: false
+          });
+          this.cargar();
+        },
+        error: (err) => {
+          this.procesando = null;
+          Swal.fire('Error', err?.error || 'No se pudo despachar', 'error');
+          this.cd.detectChanges();
+        }
+      });
+    });
+  }
+
+  // ── Confirmar entrega pago anticipado ──
   confirmarEntregaDirecta(p: any) {
     Swal.fire({
       title:             '¿Confirmar entrega?',
       html:              `Pedido <b>#${p.pedido_id}</b> — <b>${p.cliente}</b>
-                          <br><small class="text-green-600">
-                            ✓ Pago anticipado (${this.getMetodoLabel(p.metodo_pago)})
+                          <br><small style="color:#16a34a">
+                            ✓ Pago anticipado
+                            (${this.getMetodoLabel(p.metodo_pago)})
                           </small>`,
       icon:              'question',
       showCancelButton:  true,
@@ -329,15 +374,18 @@ export class DistribucionComponent implements OnInit {
     }).then(r => {
       if (!r.isConfirmed) return;
       this.procesando = p.pedido_id;
+      this.cd.detectChanges();
 
       this.distribucionService.confirmarCobroYEntrega(
-        p.pedido_id, p.total, p.metodo_pago
+        p.pedido_id, p.total, p.metodo_pago ?? 'yape'
       ).subscribe({
         next: () => {
           this.procesando = null;
           Swal.fire({
-            icon: 'success', title: '¡Entregado!',
-            timer: 2000, showConfirmButton: false
+            icon:  'success',
+            title: '¡Entregado!',
+            timer: 2000,
+            showConfirmButton: false
           });
           this.cargar();
         },
@@ -350,9 +398,11 @@ export class DistribucionComponent implements OnInit {
     });
   }
 
+  // ── Confirmar cobro contra entrega ──
   confirmarCobro() {
     if (this.montoCobrado < this.pedidoCobro.total) {
-      Swal.fire('Atención', 'El monto cobrado no puede ser menor al total', 'warning');
+      Swal.fire('Atención',
+        'El monto cobrado no puede ser menor al total', 'warning');
       return;
     }
 
@@ -364,7 +414,7 @@ export class DistribucionComponent implements OnInit {
       this.metodoCobro
     ).subscribe({
       next: () => {
-        const vuelto = this.montoCobrado - this.pedidoCobro.total;
+        const vuelto           = this.montoCobrado - this.pedidoCobro.total;
         this.procesando        = null;
         this.mostrarModalCobro = false;
         this.cd.detectChanges();
@@ -388,7 +438,6 @@ export class DistribucionComponent implements OnInit {
     });
   }
 
-  // ─────────────────────────────────────────────
   getMetodoLabel(metodo: string): string {
     const m: Record<string, string> = {
       'efectivo':       'Efectivo',
@@ -396,6 +445,6 @@ export class DistribucionComponent implements OnInit {
       'tarjeta':        'Tarjeta',
       'contra_entrega': 'Contra entrega'
     };
-    return m[metodo] ?? metodo;
+    return m[metodo] ?? metodo ?? '—';
   }
 }

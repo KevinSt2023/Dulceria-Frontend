@@ -8,19 +8,19 @@ export class DistribucionService {
   constructor(private http: HttpClient) {}
 
   getPedidosListos() {
-    return this.http.get(`${environment.apiUrl}/seguimiento`);
+    return this.http.get(`${environment.apiUrl}/distribucion`);
   }
 
-  marcarEntregado(pedidoId: number) {
-  return this.http.put(
-    `${environment.apiUrl}/pedidos/${pedidoId}/estado`, 5  // ENTREGADO = 5 ✓
-  );  
+  marcarDespachado(pedidoId: number) {
+    return this.http.put(
+      `${environment.apiUrl}/pedidos/${pedidoId}/estado`, 7
+    );
   }
 
   confirmarCobroYEntrega(pedidoId: number, monto: number, metodo: string) {
-  return this.http.put(
-    `${environment.apiUrl}/pedidos/${pedidoId}/entregar`,
-    { monto_cobrado: monto, metodo_pago: metodo }
-  );
+    return this.http.put(
+      `${environment.apiUrl}/pedidos/${pedidoId}/entregar`,
+      { monto_cobrado: monto, metodo_pago: metodo }
+    );
   }
 }

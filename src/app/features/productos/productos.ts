@@ -17,51 +17,90 @@ import Swal from 'sweetalert2';
 
   <!-- HEADER -->
   <div class="flex justify-between items-center mb-6">
-    <h2 class="text-xl font-bold text-gray-700">Productos</h2>
+    <div>
+      <h2 class="text-xl font-bold text-gray-800">Productos</h2>
+      <p class="text-sm text-gray-400 mt-0.5">
+        {{ productos.length }} productos registrados
+      </p>
+    </div>
     <button (click)="nuevo()"
             class="bg-blue-600 text-white px-4 py-2 rounded-lg
-                   hover:bg-blue-700 transition">
-      + Nuevo
+                   hover:bg-blue-700 transition text-sm font-medium">
+      + Nuevo producto
     </button>
   </div>
 
   <!-- LOADING -->
-  <div *ngIf="loading" class="text-gray-500">Cargando...</div>
+  <div *ngIf="loading" class="text-center text-gray-400 py-10">
+    Cargando productos...
+  </div>
 
   <!-- TABLA -->
-  <div class="overflow-x-auto mb-6">
-    <table class="min-w-full bg-white rounded-xl shadow">
-      <thead class="bg-gray-100">
+  <div *ngIf="!loading" class="overflow-x-auto mb-4">
+    <table class="min-w-full bg-white rounded-xl shadow-sm
+                  border border-gray-100">
+      <thead class="bg-gray-50">
         <tr>
-          <th class="text-center p-3">ID</th>
-          <th class="text-center p-3">Nombre</th>
-          <th class="text-center p-3">Descripción</th>
-          <th class="text-center p-3">Precio Venta</th>
-          <th class="text-center p-3">Estado</th>
-          <th class="text-center p-3">Tipo pedido</th>
-          <th class="text-center p-3">Categoría</th>
-          <th class="text-center p-3">Unidad</th>
-          <th class="text-center p-3">Tipo de prod.</th>
-          <th class="text-center p-3 w-32">Acciones</th>
+          <th class="p-3 text-left text-xs font-semibold text-gray-500
+                     uppercase tracking-wide">Nombre</th>
+          <th class="p-3 text-center text-xs font-semibold text-gray-500
+                     uppercase tracking-wide">Precio venta</th>
+          <th class="p-3 text-center text-xs font-semibold text-gray-500
+                     uppercase tracking-wide">Margen</th>
+          <th class="p-3 text-center text-xs font-semibold text-gray-500
+                     uppercase tracking-wide">Estado</th>
+          <th class="p-3 text-center text-xs font-semibold text-gray-500
+                     uppercase tracking-wide">Tipo pedido</th>
+          <th class="p-3 text-center text-xs font-semibold text-gray-500
+                     uppercase tracking-wide hidden md:table-cell">
+            Categoría
+          </th>
+          <th class="p-3 text-center text-xs font-semibold text-gray-500
+                     uppercase tracking-wide hidden md:table-cell">
+            Unidad
+          </th>
+          <th class="p-3 text-center text-xs font-semibold text-gray-500
+                     uppercase tracking-wide">Acciones</th>
         </tr>
       </thead>
-
       <tbody>
-        <tr *ngFor="let p of productosPaginados"
-            class="border-t hover:bg-gray-50">
-          <td class="p-3 text-center">{{ p.producto_id }}</td>
-          <td class="p-3 text-center">{{ p.nombre }}</td>
-          <td class="p-3 max-w-sm">
-            <p class="line-clamp-2">{{ p.descripcion }}</p>
+        <tr *ngIf="productosPaginados.length === 0">
+          <td colspan="8" class="p-8 text-center text-gray-400 text-sm">
+            No hay productos registrados
           </td>
-          <td class="p-3 font-semibold text-green-600 text-center">
-            S/ {{ p.precio }}
+        </tr>
+        <tr *ngFor="let p of productosPaginados"
+            class="border-t border-gray-50 hover:bg-gray-50 transition-colors">
+          <td class="p-3">
+            <p class="font-medium text-gray-800 text-sm">{{ p.nombre }}</p>
+            <p class="text-xs text-gray-400">{{ p.tipos }}</p>
+          </td>
+          <td class="p-3 text-center">
+            <span class="font-bold text-green-600">
+              S/ {{ p.precio | number:'1.2-2' }}
+            </span>
+            <p *ngIf="p.costo" class="text-xs text-gray-400">
+              Costo: S/ {{ p.costo | number:'1.2-2' }}
+            </p>
+          </td>
+          <td class="p-3 text-center">
+            <span *ngIf="p.precio > 0 && p.costo > 0"
+                  [ngClass]="calcularMargen(p.precio, p.costo) >= 30
+                              ? 'bg-green-100 text-green-700'
+                              : calcularMargen(p.precio, p.costo) >= 15
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-red-100 text-red-600'"
+                  class="px-2 py-1 rounded-full text-xs font-medium">
+              {{ calcularMargen(p.precio, p.costo) | number:'1.0-0' }}%
+            </span>
+            <span *ngIf="!p.costo || p.costo === 0"
+                  class="text-xs text-gray-300">—</span>
           </td>
           <td class="p-3 text-center">
             <span [ngClass]="p.activo
                               ? 'bg-green-100 text-green-700'
-                              : 'bg-red-100 text-red-700'"
-                  class="px-2 py-1 rounded text-xs">
+                              : 'bg-red-100 text-red-600'"
+                  class="px-2.5 py-1 rounded-full text-xs font-medium">
               {{ p.activo ? 'Activo' : 'Inactivo' }}
             </span>
           </td>
@@ -69,18 +108,22 @@ import Swal from 'sweetalert2';
             <span [ngClass]="p.permite_pedido_sin_stock
                               ? 'bg-blue-100 text-blue-700'
                               : 'bg-orange-100 text-orange-700'"
-                  class="px-2 py-1 rounded text-xs font-medium">
+                  class="px-2.5 py-1 rounded-full text-xs font-medium">
               {{ p.permite_pedido_sin_stock ? 'Encargo' : 'Solo stock' }}
             </span>
           </td>
-          <td class="p-3 text-center">{{ p.categoria }}</td>
-          <td class="p-3 text-center">{{ p.unidades }}</td>
-          <td class="p-3 text-center">{{ p.tipos }}</td>
+          <td class="p-3 text-center hidden md:table-cell">
+            <span class="text-sm text-gray-600">{{ p.categoria }}</span>
+          </td>
+          <td class="p-3 text-center hidden md:table-cell">
+            <span class="text-sm text-gray-600">{{ p.unidades }}</span>
+          </td>
           <td class="p-3 text-center">
             <button (click)="editar(p)"
-                    class="bg-blue-500 text-white px-2 py-1
-                           rounded hover:bg-blue-600">
-              ✏️
+                    class="bg-blue-500 hover:bg-blue-600 text-white
+                           px-3 py-1.5 rounded-lg text-xs font-medium
+                           transition-colors">
+              Editar
             </button>
           </td>
         </tr>
@@ -88,87 +131,112 @@ import Swal from 'sweetalert2';
     </table>
 
     <!-- PAGINACIÓN -->
-    <div class="flex justify-center mt-4 gap-2">
+    <div *ngIf="totalPaginas() > 1"
+         class="flex justify-center mt-4 gap-2">
       <button (click)="cambiarPagina(paginaActual - 1)"
               [disabled]="paginaActual === 1"
-              class="px-3 py-1 bg-gray-300 rounded disabled:opacity-50">
-        ◀
-      </button>
+              class="px-3 py-1 bg-gray-200 rounded disabled:opacity-50
+                     hover:bg-gray-300 transition-colors text-sm">◀</button>
       <button *ngFor="let p of [].constructor(totalPaginas()); let i = index"
               (click)="cambiarPagina(i + 1)"
               [ngClass]="{
                 'bg-blue-600 text-white': paginaActual === i + 1,
-                'bg-gray-200': paginaActual !== i + 1
+                'bg-gray-200 hover:bg-gray-300': paginaActual !== i + 1
               }"
-              class="px-3 py-1 rounded">
+              class="px-3 py-1 rounded text-sm transition-colors">
         {{ i + 1 }}
       </button>
       <button (click)="cambiarPagina(paginaActual + 1)"
               [disabled]="paginaActual === totalPaginas()"
-              class="px-3 py-1 bg-gray-300 rounded disabled:opacity-50">
-        ▶
-      </button>
+              class="px-3 py-1 bg-gray-200 rounded disabled:opacity-50
+                     hover:bg-gray-300 transition-colors text-sm">▶</button>
     </div>
   </div>
 
   <!-- MODAL -->
   <div *ngIf="mostrarForm"
-       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6
+       class="fixed inset-0 z-50 flex items-center justify-center
+              bg-black/50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md
                 max-h-screen overflow-y-auto">
-      <h3 class="text-lg font-bold mb-4">
-        {{ editando ? 'Editar' : 'Nuevo' }} Producto
-      </h3>
 
-      <div class="space-y-3">
+      <!-- Cabecera modal -->
+      <div class="flex justify-between items-center p-6 border-b">
+        <h3 class="text-lg font-bold text-gray-800">
+          {{ editando ? 'Editar' : 'Nuevo' }} producto
+        </h3>
+        <button (click)="cancelar()"
+                class="text-gray-400 hover:text-gray-600 text-xl leading-none">
+          ✕
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
 
         <!-- NOMBRE -->
         <div>
-          <label class="text-sm text-gray-600">Nombre</label>
+          <label class="text-sm font-medium text-gray-700 block mb-1.5">
+            Nombre *
+          </label>
           <input [(ngModel)]="form.nombre"
-                 class="w-full p-2 border rounded-lg"/>
+                 placeholder="Ej: Pastel de Chocolate"
+                 class="w-full p-2.5 border border-gray-200 rounded-xl
+                        text-sm focus:ring-2 focus:ring-blue-400 outline-none"/>
         </div>
 
         <!-- DESCRIPCIÓN -->
         <div>
-          <label class="text-sm text-gray-600">Descripción</label>
+          <label class="text-sm font-medium text-gray-700 block mb-1.5">
+            Descripción
+            <span class="text-gray-400 font-normal ml-1">(opcional)</span>
+          </label>
           <textarea [(ngModel)]="form.descripcion"
-                    rows="3"
-                    class="w-full p-2 border rounded-lg resize-none"
-                    placeholder="Descripción del producto...">
+                    rows="2"
+                    placeholder="Describe brevemente el producto..."
+                    class="w-full p-2.5 border border-gray-200 rounded-xl
+                           text-sm resize-none focus:ring-2 focus:ring-blue-400
+                           outline-none">
           </textarea>
         </div>
 
-        <!-- CATEGORÍA -->
-        <div>
-          <label class="text-sm text-gray-600">Categoría</label>
-          <select [(ngModel)]="form.categoria_id"
-                  class="w-full p-2 border rounded-lg">
-            <option value="">Seleccione</option>
-            <option *ngFor="let c of categorias" [value]="c.categoria_id">
-              {{ c.nombre }}
-            </option>
-          </select>
-        </div>
-
-        <!-- TIPO -->
-        <div>
-          <label class="text-sm text-gray-600">Tipo</label>
-          <select [(ngModel)]="form.tipo_producto_id"
-                  class="w-full p-2 border rounded-lg">
-            <option value="">Seleccione</option>
-            <option *ngFor="let t of tipos" [value]="t.tipo_producto_id">
-              {{ t.nombre }}
-            </option>
-          </select>
+        <!-- CATEGORÍA + TIPO en grid -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-sm font-medium text-gray-700 block mb-1.5">
+              Categoría *
+            </label>
+            <select [(ngModel)]="form.categoria_id"
+                    class="w-full p-2.5 border border-gray-200 rounded-xl
+                           text-sm focus:ring-2 focus:ring-blue-400 outline-none">
+              <option value="">Seleccione</option>
+              <option *ngFor="let c of categorias" [value]="c.categoria_id">
+                {{ c.nombre }}
+              </option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-medium text-gray-700 block mb-1.5">
+              Tipo *
+            </label>
+            <select [(ngModel)]="form.tipo_producto_id"
+                    class="w-full p-2.5 border border-gray-200 rounded-xl
+                           text-sm focus:ring-2 focus:ring-blue-400 outline-none">
+              <option value="">Seleccione</option>
+              <option *ngFor="let t of tipos" [value]="t.tipo_producto_id">
+                {{ t.nombre }}
+              </option>
+            </select>
+          </div>
         </div>
 
         <!-- UNIDAD -->
         <div>
-          <label class="text-sm text-gray-600">Unidad</label>
+          <label class="text-sm font-medium text-gray-700 block mb-1.5">
+            Unidad de medida *
+          </label>
           <select [(ngModel)]="form.unidad_id"
-                  class="w-full p-2 border rounded-lg">
+                  class="w-full p-2.5 border border-gray-200 rounded-xl
+                         text-sm focus:ring-2 focus:ring-blue-400 outline-none">
             <option value="">Seleccione</option>
             <option *ngFor="let u of unidades" [value]="u.unidad_id">
               {{ u.nombre }}
@@ -176,91 +244,145 @@ import Swal from 'sweetalert2';
           </select>
         </div>
 
-        <!-- PRECIO -->
-        <div>
-          <label class="text-sm text-gray-600">Precio</label>
-          <div class="flex items-center border rounded-lg px-2">
-            <span class="text-gray-500">S/</span>
-            <input [(ngModel)]="form.precio"
-                   type="text"
-                   inputmode="decimal"
-                   class="w-full p-2 outline-none"
-                   placeholder="0.00"/>
+        <!-- PRECIOS en grid -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-sm font-medium text-gray-700 block mb-1.5">
+              Precio de venta *
+              <span class="text-xs text-gray-400 font-normal block">
+                Lo que paga el cliente
+              </span>
+            </label>
+            <div class="flex items-center border border-gray-200
+                        rounded-xl px-3 focus-within:ring-2
+                        focus-within:ring-blue-400">
+              <span class="text-gray-500 font-medium text-sm">S/</span>
+              <input [(ngModel)]="form.precio"
+                     type="number"
+                     min="0"
+                     step="0.10"
+                     class="w-full p-2.5 outline-none text-sm"
+                     placeholder="0.00"/>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-sm font-medium text-gray-700 block mb-1.5">
+              Costo / Precio compra
+              <span class="text-xs text-gray-400 font-normal block">
+                Lo que te cuesta producirlo
+              </span>
+            </label>
+            <div class="flex items-center border border-gray-200
+                        rounded-xl px-3 bg-gray-50 focus-within:ring-2
+                        focus-within:ring-blue-400">
+              <span class="text-gray-400 text-sm">S/</span>
+              <input [(ngModel)]="form.costo"
+                     type="number"
+                     min="0"
+                     step="0.10"
+                     class="w-full p-2.5 outline-none text-sm bg-gray-50"
+                     placeholder="0.00"/>
+            </div>
           </div>
         </div>
 
-        <!-- COSTO -->
-        <div>
-          <label class="text-sm text-gray-600">Precio de compra</label>
-          <div class="flex items-center border rounded-lg px-2">
-            <span class="text-gray-500">S/</span>
-            <input [(ngModel)]="form.costo"
-                   type="text"
-                   inputmode="decimal"
-                   class="w-full p-2 outline-none"
-                   placeholder="0.00"/>
-          </div>
+        <!-- MARGEN DE GANANCIA -->
+        <div *ngIf="form.precio > 0 && form.costo > 0"
+             class="px-3 py-2 rounded-xl text-sm flex justify-between
+                    items-center"
+             [ngClass]="margenForm >= 30
+                         ? 'bg-green-50 border border-green-200'
+                         : margenForm >= 15
+                           ? 'bg-yellow-50 border border-yellow-200'
+                           : 'bg-red-50 border border-red-200'">
+          <span [ngClass]="margenForm >= 30
+                            ? 'text-green-700'
+                            : margenForm >= 15
+                              ? 'text-yellow-700'
+                              : 'text-red-600'"
+                class="text-xs">
+            {{ margenForm >= 30 ? '✓ Buen margen'
+               : margenForm >= 15 ? '⚠ Margen ajustado'
+               : '✗ Margen muy bajo' }}
+          </span>
+          <span [ngClass]="margenForm >= 30
+                            ? 'text-green-700'
+                            : margenForm >= 15
+                              ? 'text-yellow-700'
+                              : 'text-red-600'"
+                class="font-bold text-sm">
+            {{ margenForm | number:'1.0-0' }}% ganancia
+          </span>
         </div>
 
         <!-- TIPO DE PEDIDO -->
-        <div class="border rounded-lg p-3 bg-gray-50">
-          <label class="text-sm font-medium text-gray-700 block mb-2">
-            Tipo de pedido
+        <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
+          <label class="text-sm font-medium text-gray-700 block mb-3">
+            ¿Cómo se vende este producto?
           </label>
-          <div class="flex flex-col gap-2">
-            <label class="flex items-start gap-2 cursor-pointer">
+          <div class="space-y-2">
+            <label class="flex items-start gap-3 cursor-pointer p-2.5
+                          rounded-lg border-2 transition-all"
+                   [ngClass]="form.permite_pedido_sin_stock
+                               ? 'border-blue-400 bg-blue-50'
+                               : 'border-gray-200 bg-white'">
               <input type="radio"
                      [(ngModel)]="form.permite_pedido_sin_stock"
                      [value]="true"
                      name="tipo_pedido"
-                     class="mt-0.5"/>
+                     class="mt-0.5 flex-shrink-0"/>
               <span class="text-sm">
-                <span class="font-medium text-blue-700">Encargo</span>
-                <span class="text-gray-400 ml-1">
-                  — se produce o consigue sin importar el stock
+                <span class="font-semibold text-blue-700">Encargo</span>
+                <span class="text-gray-500 block text-xs mt-0.5">
+                  Se produce o consigue sin importar el stock actual
                 </span>
               </span>
             </label>
-            <label class="flex items-start gap-2 cursor-pointer">
+
+            <label class="flex items-start gap-3 cursor-pointer p-2.5
+                          rounded-lg border-2 transition-all"
+                   [ngClass]="!form.permite_pedido_sin_stock
+                               ? 'border-orange-400 bg-orange-50'
+                               : 'border-gray-200 bg-white'">
               <input type="radio"
                      [(ngModel)]="form.permite_pedido_sin_stock"
                      [value]="false"
                      name="tipo_pedido"
-                     class="mt-0.5"/>
+                     class="mt-0.5 flex-shrink-0"/>
               <span class="text-sm">
-                <span class="font-medium text-orange-700">Solo stock</span>
-                <span class="text-gray-400 ml-1">
-                  — el vendedor solo puede pedir si hay inventario
+                <span class="font-semibold text-orange-700">Solo stock</span>
+                <span class="text-gray-500 block text-xs mt-0.5">
+                  Solo se puede pedir si hay unidades disponibles
                 </span>
               </span>
             </label>
           </div>
-          <p class="text-xs text-gray-400 mt-2">
-            Esto controla si el vendedor puede hacer pedidos
-            cuando el stock es 0.
-          </p>
         </div>
 
         <!-- ACTIVO -->
-        <label class="flex gap-2 items-center">
-          <input type="checkbox" [(ngModel)]="form.activo"/>
-          Activo
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" [(ngModel)]="form.activo"
+                 class="w-4 h-4 rounded"/>
+          <span class="text-sm text-gray-700">Producto activo</span>
         </label>
 
-        <!-- BOTONES -->
-        <div class="flex justify-end gap-2 mt-5">
-          <button (click)="cancelar()"
-                  class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">
-            Cancelar
-          </button>
-          <button (click)="guardar()"
-                  class="px-4 py-2 bg-green-600 text-white
-                         rounded hover:bg-green-700">
-            Guardar
-          </button>
-        </div>
-
       </div>
+
+      <!-- Botones -->
+      <div class="flex justify-end gap-2 px-6 pb-6">
+        <button (click)="cancelar()"
+                class="px-4 py-2 bg-gray-100 hover:bg-gray-200
+                       rounded-xl text-sm font-medium transition-colors">
+          Cancelar
+        </button>
+        <button (click)="guardar()"
+                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white
+                       rounded-xl text-sm font-medium transition-colors">
+          {{ editando ? 'Actualizar' : 'Guardar' }}
+        </button>
+      </div>
+
     </div>
   </div>
 
@@ -274,17 +396,17 @@ export class ProductosComponent implements OnInit {
   unidades:   any[] = [];
   productos:  any[] = [];
 
-  paginaActual       = 1;
-  registrosPorPagina = 10;
+  paginaActual        = 1;
+  registrosPorPagina  = 10;
   productosPaginados: any[] = [];
-  loading = true;
-
-  mostrarForm = false;
-  editando    = false;
+  loading             = true;
+  mostrarForm         = false;
+  editando            = false;
 
   form: any = {
     producto_id:              null,
     nombre:                   '',
+    descripcion:              '',
     categoria_id:             null,
     tipo_producto_id:         null,
     unidad_id:                null,
@@ -294,6 +416,16 @@ export class ProductosComponent implements OnInit {
     permite_pedido_sin_stock: true
   };
 
+  // Margen en tiempo real dentro del formulario
+  get margenForm(): number {
+    return this.calcularMargen(this.form.precio, this.form.costo);
+  }
+
+  calcularMargen(precio: number, costo: number): number {
+    if (!precio || !costo || precio === 0) return 0;
+    return ((precio - costo) / precio) * 100;
+  }
+
   constructor(
     private productosService: ProductosService,
     private categoriaService: CategoriasService,
@@ -302,21 +434,19 @@ export class ProductosComponent implements OnInit {
     private cd:               ChangeDetectorRef
   ) {}
 
-
-
-  ngOnInit(): void {
-  this.cargar();
-  forkJoin({
-    categorias: this.categoriaService.getCategorias(),
-    tipos:      this.tiposService.getTipos(),
-    unidades:   this.unidadesService.getUnidades()
-  }).subscribe((res: any) => {
-    this.categorias = res.categorias;
-    this.tipos      = res.tipos;
-    this.unidades   = res.unidades;
-    this.cd.detectChanges();
-  });
-}
+  ngOnInit() {
+    this.cargar();
+    forkJoin({
+      categorias: this.categoriaService.getCategorias(),
+      tipos:      this.tiposService.getTipos(),
+      unidades:   this.unidadesService.getUnidades()
+    }).subscribe((res: any) => {
+      this.categorias = res.categorias;
+      this.tipos      = res.tipos;
+      this.unidades   = res.unidades;
+      this.cd.detectChanges();
+    });
+  }
 
   cargar() {
     this.loading = true;
@@ -327,8 +457,7 @@ export class ProductosComponent implements OnInit {
         this.loading = false;
         this.cd.detectChanges();
       },
-      error: (err) => {
-        console.error(err);
+      error: () => {
         this.loading = false;
         this.cd.detectChanges();
       }
@@ -339,11 +468,12 @@ export class ProductosComponent implements OnInit {
     this.form = {
       producto_id:              null,
       nombre:                   '',
+      descripcion:              '',
       categoria_id:             null,
       tipo_producto_id:         null,
       unidad_id:                null,
-      costo:                    0.0,
-      precio:                   0.0,
+      precio:                   0,
+      costo:                    0,
       activo:                   true,
       permite_pedido_sin_stock: true
     };
@@ -352,19 +482,26 @@ export class ProductosComponent implements OnInit {
   }
 
   editar(p: any) {
-    this.form     = { ...p };
+    this.form        = { ...p };
     this.editando    = true;
     this.mostrarForm = true;
   }
 
   guardar() {
-    if (!this.form.nombre) {
-      Swal.fire({
-        icon:              'warning',
-        title:             'Campo requerido',
-        text:              'El nombre es obligatorio',
-        confirmButtonText: 'Aceptar'
-      });
+    if (!this.form.nombre?.trim()) {
+      Swal.fire('Campo requerido', 'El nombre es obligatorio', 'warning');
+      return;
+    }
+    if (!this.form.categoria_id) {
+      Swal.fire('Campo requerido', 'Selecciona una categoría', 'warning');
+      return;
+    }
+    if (!this.form.unidad_id) {
+      Swal.fire('Campo requerido', 'Selecciona una unidad', 'warning');
+      return;
+    }
+    if (!this.form.precio || this.form.precio <= 0) {
+      Swal.fire('Campo requerido', 'El precio de venta debe ser mayor a 0', 'warning');
       return;
     }
 
@@ -375,24 +512,15 @@ export class ProductosComponent implements OnInit {
     accion.subscribe({
       next: () => {
         Swal.fire({
-          icon:              'success',
-          title:             this.editando ? 'Actualizado' : 'Registrado',
-          text:              this.editando
-                               ? 'Producto actualizado correctamente'
-                               : 'Producto creado correctamente',
-          confirmButtonText: 'Aceptar'
+          icon:  'success',
+          title: this.editando ? 'Actualizado' : 'Registrado',
+          text:  `Producto ${this.editando ? 'actualizado' : 'registrado'} correctamente`,
+          timer: 1500, showConfirmButton: false
         });
         this.cargar();
         this.cancelar();
       },
-      error: (err) => {
-        Swal.fire({
-          icon:              'error',
-          title:             'Error',
-          text:              err.error || 'Error al guardar',
-          confirmButtonText: 'Aceptar'
-        });
-      }
+      error: (err) => Swal.fire('Error', err.error || 'No se pudo guardar', 'error')
     });
   }
 
@@ -400,7 +528,8 @@ export class ProductosComponent implements OnInit {
 
   actualizarPaginacion() {
     const inicio = (this.paginaActual - 1) * this.registrosPorPagina;
-    this.productosPaginados = this.productos.slice(inicio, inicio + this.registrosPorPagina);
+    this.productosPaginados = this.productos
+      .slice(inicio, inicio + this.registrosPorPagina);
   }
 
   cambiarPagina(pagina: number) {
@@ -409,6 +538,6 @@ export class ProductosComponent implements OnInit {
   }
 
   totalPaginas(): number {
-    return Math.ceil(this.productos.length / this.registrosPorPagina);
+    return Math.max(1, Math.ceil(this.productos.length / this.registrosPorPagina));
   }
 }

@@ -14,10 +14,6 @@ export class ProductosService {
     return this.http.get(`${environment.apiUrl}/productos`);
   }
 
-  getProductosDisponibles() {
-    return this.http.get(`${environment.apiUrl}/productos/disponibles`);
-  }
-
   createProducto(data: any) {
   return this.http.post(`${environment.apiUrl}/productos`, data);
   }
@@ -35,4 +31,10 @@ export class ProductosService {
     `${environment.apiUrl}/productos/buscar?q=${encodeURIComponent(q)}`
   );
   }
+
+  getProductosDisponibles() {
+  return this.http.get<any[]>(
+    `${environment.apiUrl}/productos/disponibles`
+  );
+}
 }

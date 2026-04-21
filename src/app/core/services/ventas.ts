@@ -35,4 +35,21 @@ export class VentasService {
   crearVenta(data: any) {
     return this.http.post<any>(`${this.base}/ventas`, data);
   }
+
+  getComprobantes(params?: {
+  desde?: string;
+  hasta?: string;
+  tipo?: string;
+  buscar?: string;
+}) {
+  let query = '';
+  if (params?.desde)  query += `?desde=${params.desde}`;
+  if (params?.hasta)  query += `${query ? '&' : '?'}hasta=${params.hasta}`;
+  if (params?.tipo)   query += `${query ? '&' : '?'}tipo_comprobante=${params.tipo}`;
+  if (params?.buscar) query += `${query ? '&' : '?'}buscar=${params.buscar}`;
+
+  return this.http.get<any[]>(
+    `${this.base}/ventas/comprobantes${query}`
+  );
+}
 }
