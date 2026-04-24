@@ -161,6 +161,14 @@ export const routes: Routes = [
           import('./features/configuracion-negocio/configuracion-negocio')
             .then(m => m.ConfiguracionNegocioComponent)
       },
+      // ── SUPERADMIN — solo SuperAdmin ──
+      {
+        path: 'superadmin',
+        canActivate: [roleGuard([0])],
+        loadComponent: () =>
+          import('./features/superadmin/superadmin')
+            .then(m => m.SuperAdminComponent)
+      },
 
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]

@@ -238,8 +238,9 @@ import { AuthService } from '../core/auth/auth';
              routerLinkActive="text-cyan-400" class="sub-item">
             Roles
           </a>
-          <a routerLink="/app/sucursales"
-             routerLinkActive="text-cyan-400" class="sub-item">
+          <a *ngIf="isSuperAdmin()"
+            routerLink="/app/sucursales"
+            routerLinkActive="text-cyan-400" class="sub-item">
             Sucursales
           </a>
           <a routerLink="/app/almacenes"
@@ -255,10 +256,21 @@ import { AuthService } from '../core/auth/auth';
              routerLink="/app/configuracion-negocio"
              routerLinkActive="text-cyan-400" class="sub-item">
             Config. Empresa
-          </a>
+          </a>          
         </div>
       </div>
-
+      <!-- SUPERADMIN — acceso directo -->
+      <div *ngIf="isSuperAdmin()" class="pt-4">
+        <p class="section-label">SuperAdmin</p>
+        <a routerLink="/app/superadmin"
+           routerLinkActive="bg-slate-800 text-white"
+           class="nav-item">
+          <img src="assets/icon/config.png"
+               class="w-5 h-5"
+               style="filter: brightness(0) invert(1) opacity(0.6)"/>
+          Panel SuperAdmin
+        </a>
+      </div>
     </nav>
 
     <!-- Footer sidebar -->

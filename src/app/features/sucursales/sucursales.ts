@@ -90,7 +90,7 @@ import Swal from 'sweetalert2';
                 [(ngModel)]="form.direccion"
                 rows="3"
                 class="w-full p-2 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Descripción del producto..."
+                placeholder="Ingrese direccion de la sucursal..."
               ></textarea>
             </div>
 
@@ -207,12 +207,10 @@ export class SucursalesComponent implements OnInit {
           this.cancelar();
         },
         error: (err) => {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: err.error || 'Error al actualizar',
-            confirmButtonText: 'Aceptar',
-          });
+          const mensaje = err?.error?.mensaje
+            || (typeof err?.error === 'string' ? err.error : null)
+            || 'Error al actualizar';
+          Swal.fire({ icon: 'error', title: 'Error', text: mensaje, confirmButtonText: 'Aceptar' });
         },
       });
     } else {
@@ -229,12 +227,10 @@ export class SucursalesComponent implements OnInit {
           this.cancelar();
         },
         error: (err) => {
-          Swal.fire({
-            icon: 'error',
-            title: 'Error',
-            text: err.error || 'Error al registrar',
-            confirmButtonText: 'Aceptar',
-          });
+          const mensaje = err?.error?.mensaje
+            || (typeof err?.error === 'string' ? err.error : null)
+            || 'Error al registrar';
+          Swal.fire({ icon: 'error', title: 'Error', text: mensaje, confirmButtonText: 'Aceptar' });
         },
       });
     }

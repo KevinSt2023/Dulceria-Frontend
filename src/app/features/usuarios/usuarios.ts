@@ -389,7 +389,10 @@ export class UsuarioComponent implements OnInit {
       },
       error: (err) => {
         this.guardando = false;
-        Swal.fire('Error', err?.error || 'No se pudo guardar', 'error');
+        const mensaje = err?.error?.mensaje 
+          || (typeof err?.error === 'string' ? err.error : null)
+          || 'No se pudo guardar';
+        Swal.fire('Error', mensaje, 'error');
       }
     });
   }
