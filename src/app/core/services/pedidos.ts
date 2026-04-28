@@ -27,7 +27,31 @@ export class PedidosService {
     return this.http.put(`${environment.apiUrl}/pedidos/${id}/cancelar`, {});
   }
 
-  getSucursalesPickup() {
-  return this.http.get<any[]>(`${environment.apiUrl}/sucursales?todas=true`);
+  entregar(id: number, monto: number, metodo: string, tipoPago: string = 'CONTADO') {
+    return this.http.put(`${environment.apiUrl}/pedidos/${id}/entregar`, {
+      monto_cobrado: monto,
+      metodo_pago:   metodo,
+      tipo_pago:     tipoPago
+    });
   }
+
+  abonar(id: number, monto: number, metodo: string, observacion?: string) {
+    return this.http.post(`${environment.apiUrl}/pedidos/${id}/abonar`, {
+      monto,
+      metodo_pago: metodo,
+      observacion
+    });
+  }
+
+  getAbonos(id: number) {
+    return this.http.get(`${environment.apiUrl}/pedidos/${id}/abonos`);
+  }
+
+  getSucursalesPickup() {
+    return this.http.get<any[]>(`${environment.apiUrl}/sucursales?todas=true`);
+  }
+
+  getCreditosPendientes() {
+  return this.http.get(`${environment.apiUrl}/pedidos/creditos-pendientes`);
+}
 }

@@ -55,7 +55,7 @@ export const routes: Routes = [
       },
       {
         path: 'catalogo-sede',
-        canActivate: [roleGuard([1])], // solo Admin
+        canActivate: [roleGuard([0, 1])], // solo Admin
         loadComponent: () =>
           import('./features/producto-sucursal/producto-sucursal')
             .then(m => m.ProductoSucursalComponent)
@@ -87,7 +87,7 @@ export const routes: Routes = [
       },
       {
         path: 'catalogo',
-        canActivate: [roleGuard([1, 2])], // Admin, Vendedor
+        canActivate: [roleGuard([0, 1, 2])], // Admin, Vendedor
         loadComponent: () =>
           import('./features/catalogos/catalogo')
             .then(m => m.CatalogoComponent)
