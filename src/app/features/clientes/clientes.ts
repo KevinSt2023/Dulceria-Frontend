@@ -1,10 +1,11 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ClientesService } from '../../core/services/clientes';
 import { UbigeoService } from '../../core/services/ubigeos';
 import { ColorService } from '../../core/services/color';
 import Swal from 'sweetalert2';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-clientes',
@@ -270,6 +271,8 @@ export class CLienteComponent implements OnInit {
     distrito_id:     null
   };
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private clienteService: ClientesService,
     private ubigeoService:  UbigeoService,
@@ -279,7 +282,7 @@ export class CLienteComponent implements OnInit {
 
   ngOnInit() {
     this.cargar();
-    this.ubigeoService.getDepartamentos().subscribe(res => {
+    this.ubigeoService.getDepartamentos().pipe(takeUntilDestroyed(this.destroyRef)).subscribe(res => {
       this.departamentos = res;
       this.cd.detectChanges();
     });
@@ -287,7 +290,7 @@ export class CLienteComponent implements OnInit {
 
   cargar() {
     this.loading = true;
-    this.clienteService.getClientes().subscribe({
+    this.clienteService.getClientes().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.clientes = res;
         this.loading  = false;
@@ -303,7 +306,7 @@ export class CLienteComponent implements OnInit {
     this.provincias        = [];
     this.distritos         = [];
     if (!id) return;
-    this.ubigeoService.getProvincias(id).subscribe(res => {
+    this.ubigeoService.getProvincias(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(res => {
       this.provincias = res;
       this.cd.detectChanges();
     });
@@ -313,7 +316,7 @@ export class CLienteComponent implements OnInit {
     this.form.distrito_id = null;
     this.distritos        = [];
     if (!id) return;
-    this.ubigeoService.getDistritos(id).subscribe(res => {
+    this.ubigeoService.getDistritos(id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(res => {
       this.distritos = res;
       this.cd.detectChanges();
     });
@@ -348,13 +351,13 @@ export class CLienteComponent implements OnInit {
     this.distritos  = [];
 
     if (c.departamento_id) {
-      this.ubigeoService.getProvincias(c.departamento_id).subscribe(res => {
+      this.ubigeoService.getProvincias(c.departamento_id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(res => {
         this.provincias      = res;
         this.form.provincia_id = c.provincia_id;
         this.cd.detectChanges();
 
         if (c.provincia_id) {
-          this.ubigeoService.getDistritos(c.provincia_id).subscribe(res2 => {
+          this.ubigeoService.getDistritos(c.provincia_id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe(res2 => {
             this.distritos       = res2;
             this.form.distrito_id = c.distrito_id;
             this.cd.detectChanges();
@@ -377,7 +380,7 @@ export class CLienteComponent implements OnInit {
       ? this.clienteService.updateClientes(this.form.cliente_id, this.form)
       : this.clienteService.createClientes(this.form);
 
-    op.subscribe({
+    op.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         Swal.fire('Listo',
           this.editando ? 'Cliente actualizado' : 'Cliente registrado',
@@ -393,7 +396,7 @@ export class CLienteComponent implements OnInit {
 
   buscarPorDni() {
     if (!this.dniBusqueda.trim()) { this.cargar(); return; }
-    this.clienteService.getClienteDNI(this.dniBusqueda).subscribe({
+    this.clienteService.getClienteDNI(this.dniBusqueda).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.clientes = [res];
         this.cd.detectChanges();

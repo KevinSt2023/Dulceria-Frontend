@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { ProductosService } from '../../core/services/productos';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -7,6 +7,7 @@ import { TiposProductosService } from '../../core/services/tipos-productos';
 import { UnidadesService } from '../../core/services/unidades';
 import { forkJoin } from 'rxjs';
 import Swal from 'sweetalert2';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-productos',
@@ -426,6 +427,8 @@ export class ProductosComponent implements OnInit {
     return ((precio - costo) / precio) * 100;
   }
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private productosService: ProductosService,
     private categoriaService: CategoriasService,
@@ -440,7 +443,7 @@ export class ProductosComponent implements OnInit {
       categorias: this.categoriaService.getCategorias(),
       tipos:      this.tiposService.getTipos(),
       unidades:   this.unidadesService.getUnidades()
-    }).subscribe((res: any) => {
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => {
       this.categorias = res.categorias;
       this.tipos      = res.tipos;
       this.unidades   = res.unidades;
@@ -450,7 +453,7 @@ export class ProductosComponent implements OnInit {
 
   cargar() {
     this.loading = true;
-    this.productosService.getProductos().subscribe({
+    this.productosService.getProductos().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.productos = res;
         this.actualizarPaginacion();
@@ -509,7 +512,7 @@ export class ProductosComponent implements OnInit {
       ? this.productosService.updateProducto(this.form.producto_id, this.form)
       : this.productosService.createProducto(this.form);
 
-    accion.subscribe({
+    accion.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         Swal.fire({
           icon:  'success',

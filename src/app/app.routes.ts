@@ -20,42 +20,42 @@ export const routes: Routes = [
       // ── INVENTARIO — Admin y SuperAdmin ──
       {
         path: 'productos',
-        canActivate: [roleGuard([0, 1])],
+        canActivate: [roleGuard([1])],
         loadComponent: () =>
           import('./features/productos/productos')
             .then(m => m.ProductosComponent)
       },
       {
         path: 'inventario',
-        canActivate: [roleGuard([0, 1])],
+        canActivate: [roleGuard([1])],
         loadComponent: () =>
           import('./features/inventario/inventario')
             .then(m => m.InventarioComponent)
       },
       {
         path: 'categorias',
-        canActivate: [roleGuard([0, 1])],
+        canActivate: [roleGuard([1])],
         loadComponent: () =>
           import('./features/categorias/categorias')
             .then(m => m.CategoriasComponent)
       },
       {
         path: 'tipos_productos',
-        canActivate: [roleGuard([0, 1])],
+        canActivate: [roleGuard([1])],
         loadComponent: () =>
           import('./features/tipos_productos/tipos_productos')
             .then(m => m.TiposComponent)
       },
       {
         path: 'unidades',
-        canActivate: [roleGuard([0, 1])],
+        canActivate: [roleGuard([1])],
         loadComponent: () =>
           import('./features/unidades/unidades')
             .then(m => m.UnidadesComponent)
       },
       {
         path: 'catalogo-sede',
-        canActivate: [roleGuard([0, 1])], // solo Admin
+        canActivate: [roleGuard([1])], // solo Admin
         loadComponent: () =>
           import('./features/producto-sucursal/producto-sucursal')
             .then(m => m.ProductoSucursalComponent)
@@ -64,7 +64,7 @@ export const routes: Routes = [
       // ── VENTAS — Admin, SuperAdmin y Cajero ──
       {
         path: 'pos',
-        canActivate: [roleGuard([0, 1, 4])],
+        canActivate: [roleGuard([1, 4])],
         loadComponent: () =>
           import('./features/pos/pos')
             .then(m => m.PosComponent)
@@ -80,7 +80,7 @@ export const routes: Routes = [
       // ── PEDIDOS — Admin, SuperAdmin y Vendedor ──
       {
         path: 'pedidos',
-        canActivate: [roleGuard([0, 1, 2])],
+        canActivate: [roleGuard([1, 2])],
         loadComponent: () =>
           import('./features/pedidos/pedidos')
             .then(m => m.PedidosComponent)
@@ -96,7 +96,7 @@ export const routes: Routes = [
       // ── PRODUCCIÓN — Admin, SuperAdmin y Producción ──
       {
         path: 'seguimiento',
-        canActivate: [roleGuard([0, 1, 3])],
+        canActivate: [roleGuard([1, 3])],
         loadComponent: () =>
           import('./features/seguimiento/seguimiento')
             .then(m => m.SeguimientoComponent)
@@ -105,7 +105,7 @@ export const routes: Routes = [
       // ── DISTRIBUCIÓN — Admin, SuperAdmin y Distribuidor ──
       {
         path: 'distribucion',
-        canActivate: [roleGuard([0, 1, 5])],
+        canActivate: [roleGuard([1, 5])],
         loadComponent: () =>
           import('./features/distribucion/distribucion')
             .then(m => m.DistribucionComponent)
@@ -114,14 +114,14 @@ export const routes: Routes = [
       // ── CONFIGURACIÓN — Admin y SuperAdmin ──
       {
         path: 'usuarios',
-        canActivate: [roleGuard([0, 1])],
+        canActivate: [roleGuard([1])],
         loadComponent: () =>
           import('./features/usuarios/usuarios')
             .then(m => m.UsuarioComponent)
       },
       {
         path: 'clientes',
-        canActivate: [roleGuard([0, 1])],
+        canActivate: [roleGuard([1])],
         loadComponent: () =>
           import('./features/clientes/clientes')
             .then(m => m.CLienteComponent)
@@ -135,28 +135,28 @@ export const routes: Routes = [
       },
       {
         path: 'sucursales',
-        canActivate: [roleGuard([0])], // solo SuperAdmin
+        canActivate: [roleGuard([1])], // solo SuperAdmin
         loadComponent: () =>
           import('./features/sucursales/sucursales')
             .then(m => m.SucursalesComponent)
       },
       {
         path: 'almacenes',
-        canActivate: [roleGuard([0, 1])],
+        canActivate: [roleGuard([1])],
         loadComponent: () =>
           import('./features/almacenes/almacenes')
             .then(m => m.AlmacenesComponent)
       },
       {
         path: 'configuracion-pago',
-        canActivate: [roleGuard([0, 1])],
+        canActivate: [roleGuard([1])],
         loadComponent: () =>
           import('./features/configuracion-pago/configuracion-pago')
             .then(m => m.ConfiguracionPagoComponent)
       },
       {
         path: 'configuracion-negocio',
-        canActivate: [roleGuard([0])], // solo SuperAdmin
+        canActivate: [roleGuard([0,1])], // solo SuperAdmin
         loadComponent: () =>
           import('./features/configuracion-negocio/configuracion-negocio')
             .then(m => m.ConfiguracionNegocioComponent)
@@ -168,6 +168,29 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/superadmin/superadmin')
             .then(m => m.SuperAdminComponent)
+      },
+
+      {
+        path: 'configuracion_nubefact',
+        canActivate: [roleGuard([0])],  // ← solo SuperAdmin
+        loadComponent: () =>
+          import('./features/configuracion_nubefact/configuracion_nubefact')
+            .then(m => m.ConfiguracionNubefactComponent)
+      },
+      {
+        path: 'series_comprobantes',
+        canActivate: [roleGuard([0])],   // solo SuperAdmin
+        loadComponent: () =>
+          import('./features/series_comprobantes/series_comprobantes')
+            .then(m => m.SeriesComprobantesComponent)
+      },
+
+      {
+        path: 'reportes',
+        canActivate: [roleGuard([1])],   // solo admin
+        loadComponent: () =>
+          import('./features/reportes/reportes')
+            .then(m => m.ReportesComponent)
       },
 
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }

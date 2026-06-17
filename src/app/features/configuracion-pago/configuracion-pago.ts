@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ConfiguracionPagoService } from '../../core/services/configuracion-pago';
 import Swal from 'sweetalert2';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-configuracion-pago',
@@ -162,6 +163,8 @@ export class ConfiguracionPagoComponent implements OnInit {
     }
   ];
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private service: ConfiguracionPagoService,
     private cd:      ChangeDetectorRef
@@ -171,7 +174,7 @@ export class ConfiguracionPagoComponent implements OnInit {
 
   cargar() {
   this.loading = true;
-  this.service.getConfig().subscribe({
+  this.service.getConfig().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
     next: (res: any[]) => {
       res.forEach(c => {
         const m = this.metodos.find(x => x.tipo === c.tipo);
@@ -184,7 +187,7 @@ export class ConfiguracionPagoComponent implements OnInit {
 
           // ← Si tiene QR, cargarlo para mostrarlo
           if (c.tiene_qr) {
-            this.service.getQR(c.tipo).subscribe({
+            this.service.getQR(c.tipo).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
               next: (qr: any) => {
                 m.qr_base64  = qr.qr_base64;
                 m.qr_preview = 'data:image/png;base64,' + qr.qr_base64;
@@ -245,7 +248,7 @@ export class ConfiguracionPagoComponent implements OnInit {
 
     this.guardando = m.tipo;
 
-    this.service.updateConfig(m.tipo, m.form).subscribe({
+    this.service.updateConfig(m.tipo, m.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.guardando = null;
         m.tiene_qr     = !!m.form.qr_base64 || m.tiene_qr;

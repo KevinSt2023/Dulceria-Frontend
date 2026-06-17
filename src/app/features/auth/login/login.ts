@@ -1,4 +1,5 @@
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/auth/auth';
 import { Router } from '@angular/router';
@@ -222,10 +223,12 @@ export class Login {
 
   badges = ['🔒 Seguro', '☁️ SaaS', '🇵🇪 Perú'];
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private auth:   AuthService,
     private router: Router,
-    private cd:     ChangeDetectorRef  // ← estaba faltando en el import
+    private cd:     ChangeDetectorRef
   ) {}
 
   login() {
@@ -239,7 +242,7 @@ export class Login {
     this.errorMsg = '';
     this.cd.detectChanges();
 
-    this.auth.login(this.email, this.password).subscribe({
+    this.auth.login(this.email, this.password).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         localStorage.setItem('token', res.token);
         this.router.navigate(['/app']);

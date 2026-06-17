@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
@@ -6,6 +6,7 @@ import { SeguimientoService } from '../../core/services/seguimiento';
 import { AuthService } from '../../core/auth/auth';
 import { InventarioService } from '../../core/services/inventario';
 import { AlmacenesService } from '../../core/services/almacenes';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-seguimiento',
@@ -18,9 +19,7 @@ import { AlmacenesService } from '../../core/services/almacenes';
   <div class="flex justify-between items-center mb-6">
     <div>
       <h2 class="text-xl font-bold text-gray-800">Cola de producción</h2>
-      <p class="text-sm text-gray-400 mt-0.5">
-        {{ cola.length }} pedido(s) en cola
-      </p>
+      <p class="text-sm text-gray-400 mt-0.5">{{ cola.length }} pedido(s) en cola</p>
     </div>
     <button (click)="cargar()"
             class="bg-slate-100 hover:bg-slate-200 text-gray-600
@@ -42,38 +41,34 @@ import { AlmacenesService } from '../../core/services/almacenes';
     <p class="text-sm mt-1">Todos los pedidos están al día</p>
   </div>
 
-  <!-- CARDS -->
+  <!-- CARDS — items-start evita que se estiren a igual altura -->
   <div *ngIf="!loading && cola.length > 0"
-       class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+       class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 items-start">
 
     <div *ngFor="let p of cola"
          class="bg-white rounded-xl shadow-sm border border-gray-100
-                overflow-hidden hover:shadow-md transition-shadow">
+                overflow-hidden hover:shadow-md transition-shadow flex flex-col">
 
       <!-- Cabecera -->
-      <div class="flex justify-between items-start px-4 pt-4 pb-3
-                  border-b border-gray-50">
-        <div>
-          <div class="flex items-center gap-2 mb-1">
-            <span class="font-bold text-gray-800 text-lg">
-              #{{ p.pedido_id }}
-            </span>
+      <div class="flex justify-between items-start px-4 pt-4 pb-3 border-b border-gray-50">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 mb-1 flex-wrap">
+            <span class="font-bold text-gray-800 text-lg">#{{ p.pedido_id }}</span>
             <span [class]="getBadgeEstado(p.estado)"
-                  class="text-xs px-2.5 py-0.5 rounded-full font-medium">
+                  class="text-xs px-2.5 py-0.5 rounded-full font-medium whitespace-nowrap">
               {{ p.estado }}
             </span>
           </div>
-          <p class="text-sm font-medium text-gray-700">{{ p.cliente }}</p>
+          <p class="text-sm font-medium text-gray-700 truncate">{{ p.cliente }}</p>
           <p class="text-xs text-gray-400 mt-0.5">
-            {{ p.fecha | date:'dd/MM/yy HH:mm' }}
+            {{ p.fecha | date:'dd/MM/yy HH:mm':'UTC' }}
           </p>
         </div>
-
-        <div class="text-right">
+        <div class="text-right flex-shrink-0 ml-3">
           <span [ngClass]="p.tipos_pedido === 'DELIVERY'
                             ? 'bg-orange-100 text-orange-700'
                             : 'bg-blue-100 text-blue-700'"
-                class="text-xs px-2.5 py-1 rounded-full font-medium">
+                class="text-xs px-2.5 py-1 rounded-full font-medium whitespace-nowrap">
             {{ p.tipos_pedido === 'DELIVERY' ? '🛵 Delivery' : '🏪 Pickup' }}
           </span>
           <p *ngIf="p.tipos_pedido === 'DELIVERY' && p.direccion_entrega"
@@ -84,27 +79,25 @@ import { AlmacenesService } from '../../core/services/almacenes';
         </div>
       </div>
 
-      <!-- Observaciones -->
-      <div *ngIf="p.observaciones"
-           class="mx-4 mt-3 px-3 py-1.5 bg-yellow-50 border border-yellow-200
-                  rounded-lg text-xs text-yellow-800">
-        📝 {{ p.observaciones }}
+      <!-- Observaciones — espacio reservado para mantener alineación -->
+      <div class="mx-4 mt-3 min-h-[28px]">
+        <div *ngIf="p.observaciones"
+             class="px-3 py-1.5 bg-yellow-50 border border-yellow-200
+                    rounded-lg text-xs text-yellow-800">
+          📝 {{ p.observaciones }}
+        </div>
       </div>
 
       <!-- Productos con semáforo -->
-      <div class="px-4 py-3">
-        <p class="text-xs text-gray-400 uppercase tracking-wide mb-2 font-medium">
-          Productos
-        </p>
+      <div class="px-4 py-3 flex-1">
+        <p class="text-xs text-gray-400 uppercase tracking-wide mb-2 font-medium">Productos</p>
         <div class="space-y-2">
           <div *ngFor="let d of p.detalles"
                class="flex items-center justify-between text-sm">
             <div class="flex items-center gap-2 min-w-0">
               <span [class]="getSemaforoClase(d.semaforo)"
                     class="w-2.5 h-2.5 rounded-full flex-shrink-0"></span>
-              <span class="text-gray-700 text-sm truncate">
-                {{ d.producto }}
-              </span>
+              <span class="text-gray-700 text-sm truncate">{{ d.producto }}</span>
             </div>
             <div class="flex items-center gap-3 flex-shrink-0 ml-2">
               <span class="text-gray-500 text-xs">x{{ d.cantidad }}</span>
@@ -118,8 +111,7 @@ import { AlmacenesService } from '../../core/services/almacenes';
       </div>
 
       <!-- Total -->
-      <div class="px-4 py-2 border-t border-gray-50
-                  flex justify-between items-center">
+      <div class="px-4 py-2 border-t border-gray-50 flex justify-between items-center">
         <span class="text-xs text-gray-400">Total</span>
         <span class="font-bold text-green-600 text-sm">
           S/ {{ p.total | number:'1.2-2' }}
@@ -129,28 +121,22 @@ import { AlmacenesService } from '../../core/services/almacenes';
       <!-- Acciones -->
       <div class="px-4 pb-4 pt-2 space-y-2">
 
-        <!-- Avanzar estado -->
         <button *ngIf="puedeAccionar(p)"
                 (click)="accionarPedido(p)"
                 [disabled]="procesando === p.pedido_id"
                 [class]="getBotonClase(p.estado)"
                 class="w-full py-2.5 rounded-xl text-sm font-semibold
                        disabled:opacity-50 transition-colors">
-          {{ procesando === p.pedido_id
-              ? 'Procesando...'
-              : getTextoBoton(p.estado) }}
+          {{ procesando === p.pedido_id ? 'Procesando...' : getTextoBoton(p.estado) }}
         </button>
 
-        <!-- Registrar producción -->
         <button *ngIf="tieneStockCritico(p) && puedeRegistrarProduccion()"
                 (click)="abrirModalProduccion(p)"
                 class="w-full py-2.5 rounded-xl text-sm font-semibold
-                       bg-emerald-500 hover:bg-emerald-600 text-white
-                       transition-colors">
+                       bg-emerald-500 hover:bg-emerald-600 text-white transition-colors">
           + Registrar producción
         </button>
 
-        <!-- Alerta stock crítico -->
         <div *ngIf="tieneStockCritico(p)"
              class="flex items-center gap-1.5 px-2 py-1.5 bg-red-50
                     border border-red-100 rounded-lg">
@@ -166,86 +152,59 @@ import { AlmacenesService } from '../../core/services/almacenes';
 
   <!-- ══ MODAL REGISTRAR PRODUCCIÓN ══ -->
   <div *ngIf="mostrarModalProduccion"
-       class="fixed inset-0 bg-black/50 flex items-center
-              justify-center z-50 p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg
-                max-h-screen overflow-y-auto">
+       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-screen overflow-y-auto">
 
-      <!-- Cabecera -->
       <div class="flex justify-between items-center p-6 border-b">
         <div>
-          <h3 class="text-lg font-bold text-gray-800">
-            Registrar producción
-          </h3>
+          <h3 class="text-lg font-bold text-gray-800">Registrar producción</h3>
           <p class="text-sm text-gray-500 mt-0.5">
-            Pedido #{{ pedidoProduccion?.pedido_id }} —
-            {{ pedidoProduccion?.cliente }}
+            Pedido #{{ pedidoProduccion?.pedido_id }} — {{ pedidoProduccion?.cliente }}
           </p>
         </div>
         <button (click)="mostrarModalProduccion = false"
                 class="text-gray-400 hover:text-gray-600 text-xl
                        w-8 h-8 flex items-center justify-center
-                       rounded-lg hover:bg-gray-100 transition-colors">
-          ✕
-        </button>
+                       rounded-lg hover:bg-gray-100 transition-colors">✕</button>
       </div>
 
       <div class="p-6 space-y-4">
 
-        <!-- Info -->
-        <div class="bg-blue-50 border border-blue-200 rounded-xl
-                    p-3 text-xs text-blue-700">
-          💡 Indica cuánto produjiste de cada producto y en qué almacén
-          se registrará la entrada de stock.
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
+          💡 Indica cuánto produjiste de cada producto y en qué almacén se registrará la entrada de stock.
         </div>
 
-        <!-- Items -->
         <div class="space-y-3">
           <div *ngFor="let item of itemsProduccion"
                class="border border-gray-100 rounded-xl p-4 bg-gray-50">
 
-            <p class="font-semibold text-sm text-gray-800 mb-3">
-              {{ item.producto }}
-            </p>
+            <p class="font-semibold text-sm text-gray-800 mb-3">{{ item.producto }}</p>
 
             <div class="grid grid-cols-2 gap-3 mb-3">
               <div>
-                <label class="text-xs text-gray-500 block mb-1.5">
-                  Pedido
-                </label>
-                <div class="p-2.5 bg-white border border-gray-200
-                            rounded-xl text-sm text-center
-                            text-gray-500 font-medium">
+                <label class="text-xs text-gray-500 block mb-1.5">Pedido</label>
+                <div class="p-2.5 bg-white border border-gray-200 rounded-xl
+                            text-sm text-center text-gray-500 font-medium">
                   {{ item.cantidad_pedida }}
                 </div>
               </div>
               <div>
-                <label class="text-xs text-gray-500 block mb-1.5">
-                  Producido *
-                </label>
+                <label class="text-xs text-gray-500 block mb-1.5">Producido *</label>
                 <input type="number"
                        [(ngModel)]="item.cantidad_producida"
                        min="1"
-                       class="w-full p-2.5 border border-gray-200
-                              rounded-xl text-sm text-center
-                              focus:ring-2 focus:ring-green-400
-                              outline-none"/>
+                       class="w-full p-2.5 border border-gray-200 rounded-xl
+                              text-sm text-center focus:ring-2 focus:ring-green-400 outline-none"/>
               </div>
             </div>
 
             <div>
-              <label class="text-xs text-gray-500 block mb-1.5">
-                Almacén destino *
-              </label>
+              <label class="text-xs text-gray-500 block mb-1.5">Almacén destino *</label>
               <select [(ngModel)]="item.almacen_id"
-                      class="w-full p-2.5 border border-gray-200
-                             rounded-xl text-sm focus:ring-2
-                             focus:ring-green-400 outline-none">
+                      class="w-full p-2.5 border border-gray-200 rounded-xl
+                             text-sm focus:ring-2 focus:ring-green-400 outline-none">
                 <option [ngValue]="null">-- Selecciona almacén --</option>
-                <option *ngFor="let a of almacenes"
-                        [ngValue]="a.almacen_id">
-                  {{ a.nombre }}
-                </option>
+                <option *ngFor="let a of almacenes" [ngValue]="a.almacen_id">{{ a.nombre }}</option>
               </select>
             </div>
 
@@ -261,7 +220,6 @@ import { AlmacenesService } from '../../core/services/almacenes';
 
       </div>
 
-      <!-- Botones -->
       <div class="flex gap-2 px-6 pb-6">
         <button (click)="mostrarModalProduccion = false"
                 class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200
@@ -270,9 +228,8 @@ import { AlmacenesService } from '../../core/services/almacenes';
         </button>
         <button (click)="guardarProduccion()"
                 [disabled]="guardandoProduccion"
-                class="flex-1 py-2.5 bg-green-600 hover:bg-green-700
-                       text-white rounded-xl text-sm font-semibold
-                       disabled:opacity-50 transition-colors">
+                class="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white
+                       rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors">
           {{ guardandoProduccion ? 'Registrando...' : '✓ Confirmar producción' }}
         </button>
       </div>
@@ -308,6 +265,8 @@ export class SeguimientoComponent implements OnInit {
     'EN_PREPARACION': 4,
   };
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private seguimientoService: SeguimientoService,
     private authService:        AuthService,
@@ -318,25 +277,31 @@ export class SeguimientoComponent implements OnInit {
 
   ngOnInit() {
     this.cargar();
-    this.almacenesService.getAlmacenes().subscribe((res: any) => {
-      this.almacenes = res;
-      this.cd.detectChanges();
-    });
+    this.almacenesService.getAlmacenes()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((res: any) => {
+        this.almacenes = res;
+        this.cd.detectChanges();
+      });
   }
 
   cargar() {
     this.loading = true;
-    this.seguimientoService.getCola().subscribe({
-      next: (res) => {
-        this.cola    = res;
-        this.loading = false;
-        this.cd.detectChanges();
-      },
-      error: () => {
-        this.loading = false;
-        Swal.fire('Error', 'No se pudo cargar la cola', 'error');
-      }
-    });
+    this.seguimientoService.getCola()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          this.cola    = res;
+          this.loading = false;
+          // ← fix NG0100: defer detectChanges fuera del ciclo actual
+          setTimeout(() => this.cd.detectChanges());
+        },
+        error: () => {
+          this.loading = false;
+          setTimeout(() => this.cd.detectChanges());
+          Swal.fire('Error', 'No se pudo cargar la cola', 'error');
+        }
+      });
   }
 
   abrirModalProduccion(p: any) {
@@ -362,15 +327,13 @@ export class SeguimientoComponent implements OnInit {
 
     const sinAlmacen = this.itemsProduccion.some(i => !i.almacen_id);
     if (sinAlmacen) {
-      Swal.fire('Atención',
-        'Selecciona el almacén para todos los productos', 'warning');
+      Swal.fire('Atención', 'Selecciona el almacén para todos los productos', 'warning');
       return;
     }
 
     const sinCantidad = this.itemsProduccion.some(i => i.cantidad_producida < 1);
     if (sinCantidad) {
-      Swal.fire('Atención',
-        'La cantidad producida debe ser mayor a 0', 'warning');
+      Swal.fire('Atención', 'La cantidad producida debe ser mayor a 0', 'warning');
       return;
     }
 
@@ -408,11 +371,8 @@ export class SeguimientoComponent implements OnInit {
     const siguiente = this.siguienteEstado[p.estado];
     if (!siguiente) return;
 
-    // ── BLOQUEAR si va a marcar LISTO y hay stock crítico ──
     if (siguiente === 4 && this.tieneStockCritico(p)) {
-      const sinStock = p.detalles
-        .filter((d: any) => d.semaforo === 'sin_stock');
-
+      const sinStock = p.detalles.filter((d: any) => d.semaforo === 'sin_stock');
       const lista = sinStock
         .map((d: any) =>
           `<li style="margin:4px 0">
@@ -424,17 +384,12 @@ export class SeguimientoComponent implements OnInit {
       Swal.fire({
         icon:  'warning',
         title: '⚠️ Stock insuficiente',
-        html:  `<p style="margin-bottom:8px">
-                  No puedes marcar como listo — faltan productos:
-                </p>
-                <ul style="text-align:left;list-style:none;padding:0">
-                  ${lista}
-                </ul>
+        html:  `<p style="margin-bottom:8px">No puedes marcar como listo — faltan productos:</p>
+                <ul style="text-align:left;list-style:none;padding:0">${lista}</ul>
                 <p style="color:#6b7280;font-size:13px;margin-top:12px">
-                  Usa <b>"+ Registrar producción"</b> para
-                  agregar el stock faltante.
+                  Usa <b>"+ Registrar producción"</b> para agregar el stock faltante.
                 </p>`,
-        confirmButtonText: 'Entendido',
+        confirmButtonText:  'Entendido',
         confirmButtonColor: '#f59e0b'
       });
       return;
@@ -471,18 +426,21 @@ export class SeguimientoComponent implements OnInit {
     }).then(r => {
       if (!r.isConfirmed) return;
       this.procesando = p.pedido_id;
+      this.cd.detectChanges();
 
-      this.seguimientoService.cambiarEstado(p.pedido_id, siguiente).subscribe({
-        next: () => {
-          this.procesando = null;
-          this.cargar();
-        },
-        error: (err) => {
-          this.procesando = null;
-          Swal.fire('Error',
-            err?.error || 'No se pudo cambiar el estado', 'error');
-        }
-      });
+      this.seguimientoService.cambiarEstado(p.pedido_id, siguiente)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: () => {
+            this.procesando = null;
+            this.cargar();
+          },
+          error: (err) => {
+            this.procesando = null;
+            this.cd.detectChanges();
+            Swal.fire('Error', err?.error || 'No se pudo cambiar el estado', 'error');
+          }
+        });
     });
   }
 

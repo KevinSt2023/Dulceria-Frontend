@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"k:\\\\PROYECTO DULCERIA\\\\Dulceria_Frontend\\\\DulcesERP_Frontend\\\\src\\\\app\\\\features\" -Directory)",
+      "Bash(Select-Object -ExpandProperty Name)"
+    ]
+  }
+}

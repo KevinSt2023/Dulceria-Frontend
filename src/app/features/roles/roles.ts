@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RolesService } from '../../core/services/roles';
 import Swal from 'sweetalert2';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-roles',
@@ -116,6 +117,8 @@ export class RolesComponent implements OnInit {
     activo: true,
   };
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private rolesservice: RolesService,
     private cd: ChangeDetectorRef,
@@ -128,7 +131,7 @@ export class RolesComponent implements OnInit {
   cargar() {
     this.loading = true;
 
-    this.rolesservice.getRoles().subscribe({
+    this.rolesservice.getRoles().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.roles = res;
         this.loading = false;
@@ -170,7 +173,7 @@ export class RolesComponent implements OnInit {
     }
 
     if (this.editando) {
-      this.rolesservice.updateRoles(this.form.rol_id, this.form).subscribe({
+      this.rolesservice.updateRoles(this.form.rol_id, this.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: () => {
           Swal.fire({
             icon: 'success',
@@ -192,7 +195,7 @@ export class RolesComponent implements OnInit {
         },
       });
     } else {
-      this.rolesservice.createRoles(this.form).subscribe({
+      this.rolesservice.createRoles(this.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: () => {
           Swal.fire({
             icon: 'success',

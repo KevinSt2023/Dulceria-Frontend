@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { UnidadesService } from '../../core/services/unidades';
 import Swal from 'sweetalert2';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-unidades',
@@ -126,6 +127,8 @@ export class UnidadesComponent implements OnInit {
     abreviatura: '',
   };
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private unidadesService: UnidadesService,
     private cd: ChangeDetectorRef,
@@ -138,7 +141,7 @@ export class UnidadesComponent implements OnInit {
   cargar() {
     this.loading = true;
 
-    this.unidadesService.getUnidades().subscribe({
+    this.unidadesService.getUnidades().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.unidades = res;
         this.loading = false;
@@ -181,7 +184,7 @@ export class UnidadesComponent implements OnInit {
     }
 
     if (this.editando) {
-      this.unidadesService.updateunidades(this.form.unidad_id, this.form).subscribe({
+      this.unidadesService.updateunidades(this.form.unidad_id, this.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: () => {
           Swal.fire({
             icon: 'success',
@@ -203,7 +206,7 @@ export class UnidadesComponent implements OnInit {
         },
       });
     } else {
-      this.unidadesService.createunidades(this.form).subscribe({
+      this.unidadesService.createunidades(this.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: () => {
           Swal.fire({
             icon: 'success',

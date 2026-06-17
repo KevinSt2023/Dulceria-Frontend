@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TiposProductosService } from '../../core/services/tipos-productos';
 import Swal from 'sweetalert2';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-TiposProducto',
@@ -115,6 +116,8 @@ export class TiposComponent implements OnInit {
     nombre: '',
   };
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private tiposproductoservice: TiposProductosService,
     private cd: ChangeDetectorRef,
@@ -127,7 +130,7 @@ export class TiposComponent implements OnInit {
   cargar() {
     this.loading = true;
 
-    this.tiposproductoservice.getTipos().subscribe({
+    this.tiposproductoservice.getTipos().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.tipos = res;
         this.loading = false;
@@ -169,7 +172,7 @@ export class TiposComponent implements OnInit {
     }
 
     if (this.editando) {
-      this.tiposproductoservice.updateTipos(this.form.tipo_producto_id, this.form).subscribe({
+      this.tiposproductoservice.updateTipos(this.form.tipo_producto_id, this.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: () => {
           Swal.fire({
             icon: 'success',
@@ -191,7 +194,7 @@ export class TiposComponent implements OnInit {
         },
       });
     } else {
-      this.tiposproductoservice.createTipos(this.form).subscribe({
+      this.tiposproductoservice.createTipos(this.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: () => {
           Swal.fire({
             icon: 'success',

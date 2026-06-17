@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ConfiguracionNegocioService } from '../../core/services/configuracion-negocio';
 import Swal from 'sweetalert2';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-configuracion-negocio',
@@ -138,6 +139,43 @@ import Swal from 'sweetalert2';
 
     </div>
 
+    <!-- Facturación Electrónica -->
+    <div class="md:col-span-2">
+      <div class="flex items-center justify-between p-4 bg-gray-50 
+                  border border-gray-200 rounded-xl">
+        <div>
+          <p class="text-sm font-medium text-gray-700">
+            Facturación Electrónica (SUNAT)
+          </p>
+          <p class="text-xs text-gray-400 mt-0.5">
+            Activa si tu empresa emite Boletas y Facturas electrónicas.
+            Sin esto, solo podrás emitir Notas de Venta.
+          </p>
+        </div>
+        <button (click)="form.facturacion_electronica = !form.facturacion_electronica"
+                [ngClass]="form.facturacion_electronica 
+                  ? 'bg-blue-600' 
+                  : 'bg-gray-200'"
+                class="relative w-12 h-6 rounded-full transition-colors duration-200 
+                      flex-shrink-0 ml-4">
+          <span [ngClass]="form.facturacion_electronica 
+                    ? 'translate-x-6' 
+                    : 'translate-x-1'"
+                class="absolute top-1 w-4 h-4 bg-white rounded-full 
+                      shadow transition-transform duration-200 block">
+          </span>
+        </button>
+      </div>
+      <p *ngIf="form.facturacion_electronica"
+        class="mt-2 text-xs text-blue-600 bg-blue-50 p-2 rounded-lg">
+        ✓ El POS mostrará: Boleta, Factura y Nota de Venta
+      </p>
+      <p *ngIf="!form.facturacion_electronica"
+        class="mt-2 text-xs text-amber-600 bg-amber-50 p-2 rounded-lg">
+        ⚠️ El POS solo mostrará: Nota de Venta
+      </p>
+    </div>
+
     <!-- Preview del PDF -->
     <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
       <p class="text-xs font-semibold text-blue-700 mb-1">
@@ -175,12 +213,15 @@ export class ConfiguracionNegocioComponent implements OnInit {
     telefono:         '',
     email:            '',
     pie_comprobante:  'Gracias por su preferencia',
-    logo_base64:      ''
+    logo_base64:      '',
+    facturacion_electronica:   false
   };
 
   logoPreview = '';
   loading     = true;
   guardando   = false;
+
+  private destroyRef = inject(DestroyRef);
 
   constructor(
     private service: ConfiguracionNegocioService,
@@ -191,13 +232,13 @@ export class ConfiguracionNegocioComponent implements OnInit {
 
   cargar() {
     this.loading = true;
-    this.service.getConfig().subscribe({
+    this.service.getConfig().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.form    = { ...res, logo_base64: '' };
         this.loading = false;
         // Cargar logo si existe
         if (res.tiene_logo) {
-          this.service.getLogo().subscribe({
+          this.service.getLogo().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: (l: any) => {
               this.logoPreview      = 'data:image/jpeg;base64,' + l.logo_base64;
               this.form.logo_base64 = l.logo_base64;
@@ -248,7 +289,7 @@ export class ConfiguracionNegocioComponent implements OnInit {
     }
 
     this.guardando = true;
-    this.service.updateConfig(this.form).subscribe({
+    this.service.updateConfig(this.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.guardando = false;
         Swal.fire({

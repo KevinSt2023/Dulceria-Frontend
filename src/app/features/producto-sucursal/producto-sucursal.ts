@@ -1,9 +1,10 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProductoSucursalService } from '../../core/services/producto-sucursal';
 import { AuthService } from '../../core/auth/auth';
 import Swal from 'sweetalert2';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-producto-sucursal',
@@ -184,6 +185,8 @@ export class ProductoSucursalComponent implements OnInit {
     return this.productos.filter(p => p.activo_en_sucursal).length;
   }
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private service: ProductoSucursalService,
     private auth:    AuthService,
@@ -194,7 +197,7 @@ export class ProductoSucursalComponent implements OnInit {
 
   cargar() {
     this.loading = true;
-    this.service.getConfig().subscribe({
+    this.service.getConfig().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.productos = res;
         this.loading   = false;
@@ -213,7 +216,7 @@ export class ProductoSucursalComponent implements OnInit {
     this.service.updateConfig(p.producto_id, {
       activo:                   p.activo_en_sucursal,
       permite_pedido_sin_stock: p.permite_pedido_sin_stock
-    }).subscribe({
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.guardando = null;
         this.cd.detectChanges();

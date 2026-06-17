@@ -1,7 +1,8 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ProductosService } from '../../core/services/productos';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-catalogo',
@@ -199,6 +200,8 @@ export class CatalogoComponent implements OnInit {
     return this.productos.filter(p => p.permite_pedido_sin_stock).length;
   }
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private productosService: ProductosService,
     private cd:               ChangeDetectorRef
@@ -208,7 +211,7 @@ export class CatalogoComponent implements OnInit {
 
   cargar() {
     this.loading = true;
-    this.productosService.getProductosDisponibles().subscribe({
+    this.productosService.getProductosDisponibles().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.productos         = res;
         this.productosFiltrados = res;

@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
@@ -10,6 +10,7 @@ import { UbigeoService } from '../../core/services/ubigeos';
 import { AuthService } from '../../core/auth/auth';
 import { ColorService } from '../../core/services/color';
 import { ConfiguracionPagoService } from '../../core/services/configuracion-pago';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-pedidos',
@@ -166,7 +167,7 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
           </div>
         </div>
 
-        <!-- PASO 2: Productos -->
+        <!-- PASO 2: Productos (con precios editables) -->
         <div *ngIf="paso === 2">
           <div class="flex gap-2 mb-3">
             <select [(ngModel)]="nuevoItem.producto_id" class="flex-1 p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 outline-none">
@@ -178,22 +179,87 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
             <input type="number" [(ngModel)]="nuevoItem.cantidad" min="1" class="w-20 p-2.5 border border-gray-200 rounded-xl text-center text-sm focus:ring-2 focus:ring-blue-400 outline-none"/>
             <button (click)="agregarItem()" class="bg-green-500 hover:bg-green-600 text-white px-4 rounded-xl text-sm font-medium transition-colors">+ Agregar</button>
           </div>
-          <div class="border border-gray-100 rounded-xl bg-gray-50 divide-y max-h-52 overflow-y-auto mb-4">
+
+          <p class="text-xs text-gray-400 mb-2">💡 Puedes editar el precio de cada producto si necesitas ajustarlo según la zona o cliente</p>
+
+          <div class="border border-gray-100 rounded-xl bg-gray-50 max-h-72 overflow-y-auto mb-4">
             <div *ngIf="form.detalles.length === 0" class="p-6 text-center text-gray-400 text-sm">Sin productos — agrega al menos uno</div>
-            <div *ngFor="let d of form.detalles; let i = index" class="flex items-center gap-2 p-3 bg-white">
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-800 truncate">{{ d.producto }}</p>
-                <span *ngIf="d.permite_pedido_sin_stock" class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full">encargo</span>
+
+            <div *ngFor="let d of form.detalles; let i = index"
+                 class="bg-white border-b last:border-b-0 p-3"
+                 [ngClass]="{
+                   'border-l-4 border-l-red-500': esPrecioBajoCosto(d),
+                   'border-l-4 border-l-amber-400': !esPrecioBajoCosto(d) && (esVariacionAlta(d)),
+                   'border-l-4 border-l-yellow-300': !esPrecioBajoCosto(d) && !esVariacionAlta(d) && esPrecioModificado(d)
+                 }">
+
+              <div class="flex items-center gap-2">
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-gray-800 truncate">{{ d.producto }}</p>
+                  <p class="text-xs text-gray-400">
+                    Base: <span class="font-mono">S/ {{ d.precio_original | number:'1.2-2' }}</span>
+                    <span class="text-gray-300">·</span>
+                    Costo: <span class="font-mono">S/ {{ d.costo | number:'1.2-2' }}</span>
+                    <span *ngIf="d.permite_pedido_sin_stock" class="text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full ml-1">encargo</span>
+                  </p>
+                </div>
+
+                <!-- Cantidad -->
+                <div class="flex flex-col items-center">
+                  <span class="text-xs text-gray-400 mb-0.5">Cant.</span>
+                  <input type="number" [(ngModel)]="d.cantidad" (ngModelChange)="recalcular(d)"
+                         min="1" [max]="d.permite_pedido_sin_stock ? 9999 : d.stock_actual"
+                         class="w-16 border border-gray-200 p-1.5 text-center rounded-lg text-sm focus:ring-2 focus:ring-blue-400 outline-none"/>
+                </div>
+
+                <!-- PRECIO EDITABLE -->
+                <div class="flex flex-col items-center relative">
+                  <span class="text-xs text-gray-400 mb-0.5">Precio S/</span>
+                  <input type="number" step="0.01" [(ngModel)]="d.precio" (ngModelChange)="recalcular(d)"
+                         min="0"
+                         class="w-24 border p-1.5 text-center rounded-lg text-sm font-semibold outline-none transition-colors"
+                         [ngClass]="{
+                           'border-red-400 bg-red-50 focus:ring-2 focus:ring-red-300': esPrecioBajoCosto(d),
+                           'border-amber-400 bg-amber-50 focus:ring-2 focus:ring-amber-300': !esPrecioBajoCosto(d) && esVariacionAlta(d),
+                           'border-yellow-300 bg-yellow-50 focus:ring-2 focus:ring-yellow-300': !esPrecioBajoCosto(d) && !esVariacionAlta(d) && esPrecioModificado(d),
+                           'border-gray-200 focus:ring-2 focus:ring-blue-400': !esPrecioModificado(d)
+                         }"/>
+
+                  <!-- Badge variación -->
+                  <span *ngIf="esPrecioModificado(d)"
+                        class="absolute -top-1 -right-1 px-1 rounded text-[10px] font-bold font-mono"
+                        [ngClass]="{
+                          'bg-red-100 text-red-700': esPrecioBajoCosto(d) || esVariacionAlta(d),
+                          'bg-emerald-100 text-emerald-700': !esPrecioBajoCosto(d) && !esVariacionAlta(d) && variacionPrecio(d) > 0,
+                          'bg-yellow-100 text-yellow-700': !esPrecioBajoCosto(d) && !esVariacionAlta(d) && variacionPrecio(d) < 0
+                        }">
+                    {{ variacionPrecio(d) > 0 ? '+' : '' }}{{ variacionPrecio(d) | number:'1.1-1' }}%
+                  </span>
+                </div>
+
+                <!-- Subtotal -->
+                <div class="flex flex-col items-end ml-2">
+                  <span class="text-xs text-gray-400 mb-0.5">Subtotal</span>
+                  <span class="font-bold text-sm text-green-600 font-mono">S/ {{ d.subtotal | number:'1.2-2' }}</span>
+                </div>
+
+                <button (click)="eliminarItem(i)"
+                        class="text-red-400 hover:text-red-600 w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 transition-colors text-lg ml-1">✕</button>
               </div>
-              <input type="number" [(ngModel)]="d.cantidad" (ngModelChange)="recalcular(d)" min="1" [max]="d.permite_pedido_sin_stock ? 9999 : d.stock_actual"
-                     class="w-16 border border-gray-200 p-1.5 text-center rounded-lg text-sm focus:ring-2 focus:ring-blue-400 outline-none"/>
-              <span class="w-24 text-right font-semibold text-sm text-green-600">S/ {{ d.subtotal | number:'1.2-2' }}</span>
-              <button (click)="eliminarItem(i)" class="text-red-400 hover:text-red-600 w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 transition-colors text-lg">✕</button>
+
+              <!-- Alertas inline -->
+              <div *ngIf="esPrecioBajoCosto(d)" class="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 px-2 py-1 rounded">
+                ⚠ Precio por debajo del costo (S/ {{ d.costo | number:'1.2-2' }})
+              </div>
+              <div *ngIf="!esPrecioBajoCosto(d) && esVariacionAlta(d)" class="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded">
+                ⚠ Variación mayor al 50% del precio base
+              </div>
             </div>
           </div>
+
           <div class="flex justify-between items-center mb-4 bg-green-50 border border-green-100 rounded-xl p-3">
             <span class="text-sm text-gray-600 font-medium">Total del pedido</span>
-            <span class="text-xl font-bold text-green-600">S/ {{ total | number:'1.2-2' }}</span>
+            <span class="text-xl font-bold text-green-600 font-mono">S/ {{ total | number:'1.2-2' }}</span>
           </div>
           <div class="flex justify-between">
             <button (click)="irPaso(1)" class="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium transition-colors">← Volver</button>
@@ -248,7 +314,6 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
               </div>
             </div>
 
-            <!-- QR Yape -->
             <div *ngIf="form.metodo_pago === 'yape' && qrActual"
                  class="bg-purple-50 border border-purple-200 rounded-xl p-4">
               <p class="text-xs text-purple-600 font-medium mb-3 text-center">📱 Muestra este QR al cliente para que pague</p>
@@ -262,7 +327,6 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
               </div>
             </div>
 
-            <!-- N° Operación Yape obligatorio -->
             <div *ngIf="form.metodo_pago === 'yape'">
               <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1">
                 N° Operación Yape <span class="text-red-500">*</span>
@@ -279,7 +343,6 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
               <p class="text-xs text-yellow-700 text-center">⚠️ QR de Yape no configurado — pide al administrador que lo configure en Configuración → Métodos de pago</p>
             </div>
 
-            <!-- Dirección -->
             <div>
               <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-2">Dirección de entrega</label>
               <div class="flex gap-2 mb-3">
@@ -347,11 +410,10 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
     </div>
   </div>
 
-  <!-- ══ MODAL ENTREGA CAJERO — con scroll ══ -->
+  <!-- ══ MODAL ENTREGA CAJERO ══ -->
   <div *ngIf="mostrarModalEntrega" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col" style="max-height:90vh">
 
-      <!-- Cabecera fija -->
       <div class="flex justify-between items-center p-5 border-b flex-shrink-0">
         <div>
           <h3 class="text-lg font-bold">Registrar entrega</h3>
@@ -360,7 +422,6 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
         <button (click)="mostrarModalEntrega = false" class="text-gray-400 hover:text-gray-600 text-xl">✕</button>
       </div>
 
-      <!-- Contenido scrolleable -->
       <div class="flex-1 overflow-y-auto p-5 space-y-4">
 
         <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
@@ -368,7 +429,6 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
           <p class="text-3xl font-bold text-green-700">S/ {{ pedidoEntrega?.total | number:'1.2-2' }}</p>
         </div>
 
-        <!-- Tipo de pago -->
         <div>
           <label class="text-xs text-gray-500 mb-2 block font-medium">Tipo de pago</label>
           <div class="grid grid-cols-2 gap-2">
@@ -381,7 +441,6 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
           </div>
         </div>
 
-        <!-- Método de pago -->
         <div>
           <label class="text-xs text-gray-500 mb-2 block font-medium">Método de pago</label>
           <div class="grid grid-cols-3 gap-2">
@@ -395,7 +454,6 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
           </div>
         </div>
 
-        <!-- QR Yape en modal entrega -->
         <div *ngIf="qrEntrega && metodoEntrega === 'yape'"
              class="bg-purple-50 border border-purple-200 rounded-xl p-3 text-center">
           <p class="text-xs text-purple-600 font-medium mb-2">📱 Muestra el QR al cliente</p>
@@ -405,7 +463,6 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
           <p class="text-base font-bold text-green-600 mt-1">S/ {{ pedidoEntrega?.total | number:'1.2-2' }}</p>
         </div>
 
-        <!-- N° Operación Yape en modal entrega -->
         <div *ngIf="metodoEntrega === 'yape'">
           <label class="text-xs text-gray-500 mb-1 block font-medium">N° Operación Yape <span class="text-red-500">*</span></label>
           <input [(ngModel)]="referenciaEntrega"
@@ -415,7 +472,6 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
           <p class="text-xs text-gray-400 mt-1">El cliente verá el código en su app</p>
         </div>
 
-        <!-- Monto -->
         <div>
           <label class="text-xs text-gray-500 mb-1 block font-medium">
             {{ tipoPagoEntrega === 'CREDITO' ? 'Monto inicial (abono)' : 'Monto recibido' }}
@@ -439,7 +495,6 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
 
       </div>
 
-      <!-- Botones fijos abajo -->
       <div class="flex gap-2 p-5 border-t flex-shrink-0">
         <button (click)="mostrarModalEntrega = false"
                 class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium">Cancelar</button>
@@ -512,6 +567,7 @@ export class PedidosComponent implements OnInit {
     'PENDIENTE': 2, 'CONFIRMADO': 3, 'EN_PREPARACION': 4, 'LISTO': 5
   };
   private readonly estadosFinales = new Set(['ENTREGADO', 'CANCELADO']);
+  private destroyRef = inject(DestroyRef);
 
   constructor(
     private pedidosService:    PedidosService,
@@ -529,7 +585,7 @@ export class PedidosComponent implements OnInit {
 
   cargar() {
     this.loading = true;
-    this.pedidosService.getPedidos().subscribe({
+    this.pedidosService.getPedidos().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => { this.pedidos = res; this.loading = false; this.cd.detectChanges(); },
       error: () => { this.loading = false; Swal.fire('Error', 'No se pudieron cargar los pedidos', 'error'); }
     });
@@ -542,9 +598,9 @@ export class PedidosComponent implements OnInit {
     this.dniBusqueda = ''; this.clienteEncontrado = null;
     this.mostrarFormCliente = false; this.usandoDireccionCliente = false;
     this.nuevoItem = { producto_id: null, cantidad: 1 };
-    this.productosService.getProductosDisponibles().subscribe((res: any) => { this.productos = res; this.cd.detectChanges(); });
-    this.sucursalesService.getSucursalesPickup().subscribe((res: any) => { this.sucursales = res.filter((s: any) => s.activo); this.cd.detectChanges(); });
-    this.ubigeoService.getDepartamentos().subscribe((res: any) => { this.departamentos = res; this.cd.detectChanges(); });
+    this.productosService.getProductosDisponibles().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => { this.productos = res; this.cd.detectChanges(); });
+    this.sucursalesService.getSucursalesPickup().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => { this.sucursales = res.filter((s: any) => s.activo); this.cd.detectChanges(); });
+    this.ubigeoService.getDepartamentos().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => { this.departamentos = res; this.cd.detectChanges(); });
   }
 
   cerrarModal() { this.mostrarModal = false; }
@@ -561,7 +617,7 @@ export class PedidosComponent implements OnInit {
 
   cargarQR(tipo: string) {
     this.cargandoQR = true;
-    this.configPagoService.getQR(tipo).subscribe({
+    this.configPagoService.getQR(tipo).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next:  (res: any) => { this.qrActual = res; this.cargandoQR = false; this.cd.detectChanges(); },
       error: ()         => { this.qrActual = null; this.cargandoQR = false; this.cd.detectChanges(); }
     });
@@ -572,7 +628,7 @@ export class PedidosComponent implements OnInit {
     this.referenciaEntrega = '';
     this.qrEntrega        = null;
     if (valor === 'yape') {
-      this.configPagoService.getQR('yape').subscribe({
+      this.configPagoService.getQR('yape').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next:  (res: any) => { this.qrEntrega = res; this.cd.detectChanges(); },
         error: ()         => { this.qrEntrega = null; this.cd.detectChanges(); }
       });
@@ -584,12 +640,12 @@ export class PedidosComponent implements OnInit {
     if (!this.dniBusqueda.trim()) { Swal.fire('¡Cuidado!', 'Ingrese un número de documento', 'warning'); return; }
     if (this.buscandoCliente) return;
     this.buscandoCliente = true; this.cd.detectChanges();
-    this.clientesService.getClienteDNI(this.dniBusqueda).subscribe({
+    this.clientesService.getClienteDNI(this.dniBusqueda).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => { this.buscandoCliente = false; this.clienteEncontrado = res; this.form.cliente_id = res.cliente_id; this.mostrarFormCliente = false; this.cd.detectChanges(); },
       error: () => {
         const esRUC = this.dniBusqueda.length === 11;
         const obs   = esRUC ? this.clientesService.consultarRUC(this.dniBusqueda) : this.clientesService.consultarDNI(this.dniBusqueda);
-        obs.subscribe({
+        obs.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
           next: (res: any) => {
             this.buscandoCliente = false;
             if (res.nombre) { this.nuevoCliente = { nombre: res.nombre, documento: res.documento, telefono: '', email: '', direccion: res.direccion ?? '' }; this.mostrarFormCliente = true; this.clienteEncontrado = null; }
@@ -605,7 +661,7 @@ export class PedidosComponent implements OnInit {
   crearCliente() {
     if (!this.nuevoCliente.nombre?.trim()) { Swal.fire('Campo requerido', 'Ingrese el nombre del cliente', 'warning'); return; }
     this.nuevoCliente.documento = this.dniBusqueda;
-    this.clientesService.createClientes(this.nuevoCliente).subscribe({
+    this.clientesService.createClientes(this.nuevoCliente).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => { this.form.cliente_id = res.cliente_id; this.clienteEncontrado = res; this.mostrarFormCliente = false; Swal.fire({ icon: 'success', title: 'Cliente registrado', timer: 1500, showConfirmButton: false }); this.cd.detectChanges(); },
       error: () => Swal.fire('Error', 'No se pudo registrar el cliente', 'error')
     });
@@ -626,13 +682,13 @@ export class PedidosComponent implements OnInit {
   onDepartamentoChange(departamentoId: number) {
     this.entrega.provincia_id = null; this.entrega.distrito_id = null; this.provincias = []; this.distritos = [];
     if (!departamentoId) return;
-    this.ubigeoService.getProvincias(departamentoId).subscribe((res: any) => { this.provincias = res; this.cd.detectChanges(); });
+    this.ubigeoService.getProvincias(departamentoId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => { this.provincias = res; this.cd.detectChanges(); });
   }
 
   onProvinciaChange(provinciaId: number) {
     this.entrega.distrito_id = null; this.distritos = [];
     if (!provinciaId) return;
-    this.ubigeoService.getDistritos(provinciaId).subscribe((res: any) => { this.distritos = res; this.cd.detectChanges(); });
+    this.ubigeoService.getDistritos(provinciaId).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => { this.distritos = res; this.cd.detectChanges(); });
   }
 
   puedeGuardar(): boolean {
@@ -659,16 +715,87 @@ export class PedidosComponent implements OnInit {
     }
     const existente = this.form.detalles.find((d: any) => d.producto_id === prod.producto_id);
     if (existente) { existente.cantidad += this.nuevoItem.cantidad; this.recalcular(existente); }
-    else { this.form.detalles.push({ producto_id: prod.producto_id, producto: prod.nombre, cantidad: this.nuevoItem.cantidad, precio: prod.precio, subtotal: prod.precio * this.nuevoItem.cantidad, stock_actual: prod.stock_disponible, permite_pedido_sin_stock: prod.permite_pedido_sin_stock }); }
+    else {
+      this.form.detalles.push({
+        producto_id: prod.producto_id,
+        producto: prod.nombre,
+        cantidad: this.nuevoItem.cantidad,
+        precio: prod.precio,
+        precio_original: prod.precio,        // ← NUEVO
+        costo: prod.costo ?? 0,              // ← NUEVO
+        subtotal: prod.precio * this.nuevoItem.cantidad,
+        stock_actual: prod.stock_disponible,
+        permite_pedido_sin_stock: prod.permite_pedido_sin_stock
+      });
+    }
     this.nuevoItem = { producto_id: null, cantidad: 1 };
   }
 
-  recalcular(d: any) { d.subtotal = d.precio * d.cantidad; }
-  eliminarItem(i: number) { this.form.detalles.splice(i, 1); }
-  get total() { return this.form.detalles.reduce((a: number, b: any) => a + b.subtotal, 0); }
+  recalcular(d: any) {
+    const precio = Number(d.precio) || 0;
+    const cantidad = Number(d.cantidad) || 0;
+    d.subtotal = precio * cantidad;
+  }
 
-  guardarPedido() {
+  eliminarItem(i: number) { this.form.detalles.splice(i, 1); }
+  get total() { return this.form.detalles.reduce((a: number, b: any) => a + Number(b.subtotal || 0), 0); }
+
+  // ═══════════════════════════════════════════════════════════════
+  // HELPERS DE PRECIO VARIABLE
+  // ═══════════════════════════════════════════════════════════════
+  variacionPrecio(d: any): number {
+    if (!d.precio_original || d.precio_original === 0) return 0;
+    return ((Number(d.precio) - d.precio_original) / d.precio_original) * 100;
+  }
+  esPrecioModificado(d: any): boolean {
+    return Math.abs(Number(d.precio) - d.precio_original) > 0.01;
+  }
+  esPrecioBajoCosto(d: any): boolean {
+    return Number(d.precio) < (d.costo ?? 0);
+  }
+  esVariacionAlta(d: any): boolean {
+    return Math.abs(this.variacionPrecio(d)) > 50;
+  }
+
+  async guardarPedido() {
     if (this.guardando) return;
+
+    // ── Validación: precios bajo costo ──
+    const bajoCosto = this.form.detalles.filter((d: any) => this.esPrecioBajoCosto(d));
+    if (bajoCosto.length > 0) {
+      const lista = bajoCosto.map((d: any) =>
+        `${d.producto}: S/ ${Number(d.precio).toFixed(2)} (costo S/ ${Number(d.costo).toFixed(2)})`
+      ).join('<br>');
+      const res = await Swal.fire({
+        title: 'Precio por debajo del costo',
+        html: `Los siguientes productos se venden bajo costo:<br><br><div style="text-align:left;font-size:13px">${lista}</div><br>El sistema bloqueará el pedido si lo confirmas. ¿Quieres revisar los precios?`,
+        icon: 'error',
+        confirmButtonText: 'Revisar precios',
+        confirmButtonColor: '#dc2626'
+      });
+      return;
+    }
+
+    // ── Validación: variaciones >50% (warning, permite continuar) ──
+    const variacionesAltas = this.form.detalles.filter((d: any) =>
+      this.esPrecioModificado(d) && this.esVariacionAlta(d)
+    );
+    if (variacionesAltas.length > 0) {
+      const lista = variacionesAltas.map((d: any) =>
+        `${d.producto}: S/ ${Number(d.precio_original).toFixed(2)} → S/ ${Number(d.precio).toFixed(2)} (${this.variacionPrecio(d).toFixed(1)}%)`
+      ).join('<br>');
+      const res = await Swal.fire({
+        title: 'Variación de precio mayor al 50%',
+        html: `Detectamos variaciones grandes:<br><br><div style="text-align:left;font-size:13px">${lista}</div><br>¿Confirmas estos precios?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, los precios son correctos',
+        cancelButtonText: 'Revisar',
+        confirmButtonColor: '#f59e0b'
+      });
+      if (!res.isConfirmed) return;
+    }
+
     if (this.form.tipos_pedido === 'DELIVERY') {
       if (this.usandoDireccionCliente) { this.form.direccion_entrega = this.clienteEncontrado?.direccion ?? ''; }
       else {
@@ -682,8 +809,26 @@ export class PedidosComponent implements OnInit {
       const suc = this.sucursales.find(s => s.sucursal_id === this.form.sucursal_recojo_id);
       this.form.direccion_entrega = suc?.direccion ?? '';
     }
+
+    // ── Armar payload SOLO con campos que espera el backend (incluye precio editado) ──
+    const payload = {
+      cliente_id: this.form.cliente_id,
+      tipos_pedido: this.form.tipos_pedido,
+      sucursal_recojo_id: this.form.sucursal_recojo_id,
+      observaciones: this.form.observaciones,
+      direccion_entrega: this.form.direccion_entrega,
+      pagado: this.form.pagado,
+      metodo_pago: this.form.metodo_pago,
+      referencia_pago: this.form.referencia_pago,
+      detalles: this.form.detalles.map((d: any) => ({
+        producto_id: d.producto_id,
+        cantidad: d.cantidad,
+        precio: Number(d.precio)   // ← envía el precio editado
+      }))
+    };
+
     this.guardando = true; this.cd.detectChanges();
-    this.pedidosService.createPedido(this.form).subscribe({
+    this.pedidosService.createPedido(payload).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.guardando = false; this.mostrarModal = false; this.cd.detectChanges();
         Swal.fire({ icon: 'success', title: '¡Pedido creado!', html: res.sucursal_preparacion ? `Se preparará en: <b>${res.sucursal_preparacion}</b>` : 'Pedido registrado correctamente', timer: 2000, showConfirmButton: false });
@@ -693,7 +838,7 @@ export class PedidosComponent implements OnInit {
         this.guardando = false; this.cd.detectChanges();
         if (err.error?.errores) {
           const lista = err.error.errores.map((e: string) => `<li>${e}</li>`).join('');
-          Swal.fire({ icon: 'warning', title: err.error.mensaje ?? 'Stock insuficiente', html: `<ul style="text-align:left">${lista}</ul><p style="color:#6b7280;font-size:13px;margin-top:8px">${err.error.sugerencia ?? ''}</p>`, confirmButtonText: 'Entendido' });
+          Swal.fire({ icon: 'warning', title: err.error.mensaje ?? 'Error', html: `<ul style="text-align:left">${lista}</ul><p style="color:#6b7280;font-size:13px;margin-top:8px">${err.error.sugerencia ?? ''}</p>`, confirmButtonText: 'Entendido' });
         } else { Swal.fire('Error', err?.error?.message ?? err?.error ?? 'No se pudo crear', 'error'); }
       }
     });
@@ -701,8 +846,16 @@ export class PedidosComponent implements OnInit {
 
   verDetalle(p: any) {
     if (!p.detalles?.length) { Swal.fire('Sin detalle', 'Este pedido no tiene productos', 'info'); return; }
-    const rows = p.detalles.map((d: any) => `<tr><td style="padding:6px 8px;text-align:left">${d.producto}</td><td style="padding:6px 8px;text-align:center">${d.cantidad}</td><td style="padding:6px 8px;text-align:right">S/ ${Number(d.precio).toFixed(2)}</td><td style="padding:6px 8px;text-align:right;font-weight:600;color:#16a34a">S/ ${Number(d.subtotal).toFixed(2)}</td></tr>`).join('');
-    Swal.fire({ title: `Pedido #${p.pedido_id}`, html: `<p style="font-size:12px;color:#6b7280;margin-bottom:8px">${p.tipos_pedido === 'DELIVERY' ? '🛵 Delivery' : '🏪 Pickup'}${p.direccion_entrega ? ' · ' + p.direccion_entrega : ''}</p><table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="border-bottom:2px solid #e5e7eb;color:#6b7280;font-size:11px;text-transform:uppercase"><th style="padding:6px 8px;text-align:left">Producto</th><th style="padding:6px 8px">Cant.</th><th style="padding:6px 8px">Precio</th><th style="padding:6px 8px">Subtotal</th></tr></thead><tbody>${rows}</tbody><tfoot><tr style="border-top:2px solid #e5e7eb"><td colspan="3" style="padding:8px;text-align:right;font-weight:600;font-size:14px">Total</td><td style="padding:8px;text-align:right;font-weight:700;color:#16a34a;font-size:16px">S/ ${Number(p.total).toFixed(2)}</td></tr></tfoot></table>`, width: 500 });
+    const rows = p.detalles.map((d: any) => {
+      const modificado = d.precio_modificado;
+      const variacion = d.variacion_porcentaje || 0;
+      const colorVar = variacion > 50 || variacion < -50 ? '#dc2626' : variacion > 0 ? '#16a34a' : variacion < 0 ? '#d97706' : '#9ca3af';
+      const badge = modificado
+        ? `<span style="font-size:10px;color:${colorVar};background:#f3f4f6;padding:1px 5px;border-radius:3px;margin-left:4px;font-family:monospace">${variacion > 0 ? '+' : ''}${variacion.toFixed(1)}%</span>`
+        : '';
+      return `<tr><td style="padding:6px 8px;text-align:left">${d.producto}</td><td style="padding:6px 8px;text-align:center">${d.cantidad}</td><td style="padding:6px 8px;text-align:right">S/ ${Number(d.precio).toFixed(2)}${badge}</td><td style="padding:6px 8px;text-align:right;font-weight:600;color:#16a34a">S/ ${Number(d.subtotal).toFixed(2)}</td></tr>`;
+    }).join('');
+    Swal.fire({ title: `Pedido #${p.pedido_id}`, html: `<p style="font-size:12px;color:#6b7280;margin-bottom:8px">${p.tipos_pedido === 'DELIVERY' ? '🛵 Delivery' : '🏪 Pickup'}${p.direccion_entrega ? ' · ' + p.direccion_entrega : ''}</p><table style="width:100%;font-size:13px;border-collapse:collapse"><thead><tr style="border-bottom:2px solid #e5e7eb;color:#6b7280;font-size:11px;text-transform:uppercase"><th style="padding:6px 8px;text-align:left">Producto</th><th style="padding:6px 8px">Cant.</th><th style="padding:6px 8px">Precio</th><th style="padding:6px 8px">Subtotal</th></tr></thead><tbody>${rows}</tbody><tfoot><tr style="border-top:2px solid #e5e7eb"><td colspan="3" style="padding:8px;text-align:right;font-weight:600;font-size:14px">Total</td><td style="padding:8px;text-align:right;font-weight:700;color:#16a34a;font-size:16px">S/ ${Number(p.total).toFixed(2)}</td></tr></tfoot></table>`, width: 550 });
   }
 
   cambiarEstado(p: any) {
@@ -714,7 +867,7 @@ export class PedidosComponent implements OnInit {
     else if (rol === 4 && p.estado === 'LISTO') { this.abrirModalEntrega(p); return; }
     else if (this.authService.isAdminOrSuper()) siguiente = this.flujoEstados[p.estado];
     if (!siguiente) { Swal.fire('No permitido', 'No puedes cambiar este estado', 'warning'); return; }
-    this.pedidosService.cambiarEstado(p.pedido_id, siguiente).subscribe({
+    this.pedidosService.cambiarEstado(p.pedido_id, siguiente).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => this.cargar(),
       error: (err) => Swal.fire('Error', err.error, 'error')
     });
@@ -722,7 +875,7 @@ export class PedidosComponent implements OnInit {
 
   cancelarPedido(p: any) {
     Swal.fire({ title: '¿Cancelar pedido?', text: `Pedido #${p.pedido_id} de ${p.cliente}`, icon: 'warning', showCancelButton: true, confirmButtonColor: '#ef4444', confirmButtonText: 'Sí, cancelar', cancelButtonText: 'No' })
-      .then(r => { if (!r.isConfirmed) return; this.pedidosService.cancelarPedido(p.pedido_id).subscribe({ next: () => this.cargar(), error: (err) => Swal.fire('Error', err?.error || 'No se pudo cancelar', 'error') }); });
+      .then(r => { if (!r.isConfirmed) return; this.pedidosService.cancelarPedido(p.pedido_id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({ next: () => this.cargar(), error: (err) => Swal.fire('Error', err?.error || 'No se pudo cancelar', 'error') }); });
   }
 
   esFinal(estado: string): boolean { return this.estadosFinales.has(estado); }
@@ -760,9 +913,12 @@ export class PedidosComponent implements OnInit {
     }
     this.procesandoEntrega = true;
     this.pedidosService.entregar(
-      this.pedidoEntrega.pedido_id, this.montoEntrega,
-      this.metodoEntrega, this.tipoPagoEntrega
-    ).subscribe({
+      this.pedidoEntrega.pedido_id,
+      this.montoEntrega,
+      this.metodoEntrega,
+      this.tipoPagoEntrega,
+      this.referenciaEntrega
+    ).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.procesandoEntrega = false; this.mostrarModalEntrega = false; this.cd.detectChanges();
         const msg = this.tipoPagoEntrega === 'CREDITO' ? `Saldo pendiente: <b>S/ ${res.saldo_pendiente?.toFixed(2)}</b>` : res.vuelto > 0 ? `Vuelto: <b>S/ ${res.vuelto?.toFixed(2)}</b>` : '✓ Cobro exacto';

@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SucursalesService } from '../../core/services/sucursales';
 import Swal from 'sweetalert2';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-sucursales',
@@ -138,6 +139,8 @@ export class SucursalesComponent implements OnInit {
     telefono: '',
   };
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private sucursalService: SucursalesService,
     private cd: ChangeDetectorRef,
@@ -150,7 +153,7 @@ export class SucursalesComponent implements OnInit {
   cargar() {
     this.loading = true;
 
-    this.sucursalService.getSucursales().subscribe({
+    this.sucursalService.getSucursales().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.sucursales = res;
         this.loading = false;
@@ -194,7 +197,7 @@ export class SucursalesComponent implements OnInit {
     }
 
     if (this.editando) {
-      this.sucursalService.updateSucursales(this.form.sucursal_id, this.form).subscribe({
+      this.sucursalService.updateSucursales(this.form.sucursal_id, this.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: () => {
           Swal.fire({
             icon: 'success',
@@ -214,7 +217,7 @@ export class SucursalesComponent implements OnInit {
         },
       });
     } else {
-      this.sucursalService.createSucursales(this.form).subscribe({
+      this.sucursalService.createSucursales(this.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: () => {
           Swal.fire({
             icon: 'success',

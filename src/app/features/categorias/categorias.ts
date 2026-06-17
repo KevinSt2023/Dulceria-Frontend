@@ -1,8 +1,9 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CategoriasService } from '../../core/services/categorias';
 import Swal from 'sweetalert2';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-categorias',
@@ -70,7 +71,7 @@ import Swal from 'sweetalert2';
         class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       >
         <div class="bg-white rounded-xl shadow-xl w-full max-w-md p-6 animate-fade-in">
-          <h3 class="text-lg font-bold mb-4">{{ editando ? 'Editar' : 'Nuevo' }} Unidad de Medida</h3>
+          <h3 class="text-lg font-bold mb-4">{{ editando ? 'Editar' : 'Nuevo' }} registro de categoria</h3>
 
           <div class="space-y-3">
             <!-- NOMBRE -->
@@ -115,6 +116,8 @@ export class CategoriasComponent implements OnInit {
     activo: true
   };
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private categoriaservice: CategoriasService,
     private cd: ChangeDetectorRef,
@@ -127,7 +130,7 @@ export class CategoriasComponent implements OnInit {
   cargar() {
     this.loading = true;
 
-    this.categoriaservice.getCategorias().subscribe({
+    this.categoriaservice.getCategorias().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.categorias = res;
         this.loading = false;
@@ -169,7 +172,7 @@ export class CategoriasComponent implements OnInit {
         }
       
         if (this.editando) {
-          this.categoriaservice.updateCategoria(this.form.categoria_id, this.form).subscribe({
+          this.categoriaservice.updateCategoria(this.form.categoria_id, this.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: () => {
               Swal.fire({
                 icon: 'success',
@@ -193,7 +196,7 @@ export class CategoriasComponent implements OnInit {
       
         } else {
       
-          this.categoriaservice.createCategoria(this.form).subscribe({
+          this.categoriaservice.createCategoria(this.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
             next: () => {
               Swal.fire({
                 icon: 'success',

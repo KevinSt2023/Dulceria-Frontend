@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { InventarioService } from '../../core/services/inventario';
@@ -6,6 +6,7 @@ import { ProductosService } from '../../core/services/productos';
 import { AlmacenesService } from '../../core/services/almacenes';
 import { ColorService } from '../../core/services/color';
 import Swal from 'sweetalert2';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-inventario',
@@ -429,6 +430,8 @@ export class InventarioComponent implements OnInit {
     _sucursalnombre: ''
   };
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private inventarioService: InventarioService,
     private productosService:  ProductosService,
@@ -439,13 +442,13 @@ export class InventarioComponent implements OnInit {
 
   ngOnInit() {
   this.cargar(true); // ← true = mostrar alerta
-  this.almacenesService.getAlmacenes().subscribe((res: any) => {
+  this.almacenesService.getAlmacenes().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => {
     this.almacenes = res;
   });
 }
 
   cargar(mostrarAlerta = false) {
-  this.inventarioService.getInventario().subscribe((res: any) => {
+  this.inventarioService.getInventario().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => {
     this.inventario = res;
     this.sucursales = [...new Set<string>(
       res.map((i: any) => i.sucursalnombre)
@@ -506,7 +509,7 @@ export class InventarioComponent implements OnInit {
     this.form              = this.getFormInicial();
     this.mostrarModal      = true;
     this.cargandoProductos = true;
-    this.productosService.getProductos().subscribe((res: any) => {
+    this.productosService.getProductos().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => {
       this.productos         = res;
       this.cargandoProductos = false;
       this.cd.detectChanges();
@@ -529,7 +532,7 @@ export class InventarioComponent implements OnInit {
     if (!this.form.motivo?.trim())  { Swal.fire('Atención', 'Ingresa un motivo', 'warning'); return; }
 
     this.guardando = true;
-    this.inventarioService.createMovimiento(this.form).subscribe({
+    this.inventarioService.createMovimiento(this.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         Swal.fire({ icon: 'success', title: 'Movimiento registrado',
           text: `Stock actual: ${res.stock_actual}`, timer: 2000, showConfirmButton: false });
@@ -556,7 +559,7 @@ export class InventarioComponent implements OnInit {
   cerrarConfig() { this.mostrarConfig = false; }
 
   guardarConfig() {
-    this.inventarioService.updateConfig(this.config).subscribe({
+    this.inventarioService.updateConfig(this.config).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         Swal.fire({ icon: 'success', title: 'Configuración guardada',
           timer: 1500, showConfirmButton: false });
@@ -572,7 +575,7 @@ export class InventarioComponent implements OnInit {
     this.almacenSeleccionado  = i.almacen_id;
     this.fechaInicio          = '';
     this.fechaFin             = '';
-    this.inventarioService.getKardex(i.producto_id, i.almacen_id).subscribe((res: any) => {
+    this.inventarioService.getKardex(i.producto_id, i.almacen_id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => {
       this.kardex        = res;
       this.mostrarKardex = true;
       this.cd.detectChanges();
@@ -587,7 +590,7 @@ export class InventarioComponent implements OnInit {
     }
     this.inventarioService.getKardexFiltrado(
       this.productoSeleccionado, this.almacenSeleccionado, this.fechaInicio, this.fechaFin
-    ).subscribe((res: any) => { this.kardex = res; this.cd.detectChanges(); });
+    ).pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => { this.kardex = res; this.cd.detectChanges(); });
   }
 
   limpiarFiltro() {

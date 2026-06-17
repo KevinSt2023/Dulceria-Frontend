@@ -1,9 +1,10 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AlmacenesService } from '../../core/services/almacenes';
 import { SucursalesService } from '../../core/services/sucursales';
 import Swal from 'sweetalert2';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-almacenes',
@@ -126,6 +127,8 @@ export class AlmacenesComponent implements OnInit {
     nombre: ''      
   };
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private almacenservice: AlmacenesService,
     private sucursalesservice : SucursalesService,
@@ -134,7 +137,7 @@ export class AlmacenesComponent implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
-    this.sucursalesservice.getSucursales().subscribe((res: any) => {
+    this.sucursalesservice.getSucursales().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => {
     this.sucursales = res;
     this.cd.detectChanges();
     });
@@ -143,7 +146,7 @@ export class AlmacenesComponent implements OnInit {
   cargar() {
     this.loading = true;
 
-    this.almacenservice.getAlmacenes().subscribe({
+    this.almacenservice.getAlmacenes().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => {
         this.almacenes = res;        
         this.loading = false;
@@ -187,7 +190,7 @@ export class AlmacenesComponent implements OnInit {
       }
     
       if (this.editando) {
-        this.almacenservice.updateAlmacenes(this.form.almacen_id, this.form).subscribe({
+        this.almacenservice.updateAlmacenes(this.form.almacen_id, this.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
           next: () => {
             Swal.fire({
               icon: 'success',
@@ -211,7 +214,7 @@ export class AlmacenesComponent implements OnInit {
     
       } else {
     
-        this.almacenservice.createAlmacenes(this.form).subscribe({
+        this.almacenservice.createAlmacenes(this.form).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
           next: () => {
             Swal.fire({
               icon: 'success',

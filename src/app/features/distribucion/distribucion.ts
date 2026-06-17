@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
@@ -8,6 +8,7 @@ import { ColorService } from '../../core/services/color';
 import { ConfiguracionNegocioService } from '../../core/services/configuracion-negocio';
 import { ConfiguracionPagoService } from '../../core/services/configuracion-pago';
 import { firstValueFrom } from 'rxjs';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'app-distribucion',
@@ -316,6 +317,8 @@ export class DistribucionComponent implements OnInit {
     { valor: 'tarjeta',  icono: '💳', label: 'Tarjeta' }
   ];
 
+  private destroyRef = inject(DestroyRef);
+
   constructor(
     private distribucionService: DistribucionService,
     private authService:         AuthService,
@@ -337,7 +340,7 @@ export class DistribucionComponent implements OnInit {
 
   cargar() {
     this.loading = true;
-    this.distribucionService.getPedidosListos().subscribe({
+    this.distribucionService.getPedidosListos().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => { this.pedidos = res; this.loading = false; this.cd.detectChanges(); },
       error: () => { this.loading = false; Swal.fire('Error', 'No se pudieron cargar los pedidos', 'error'); }
     });
@@ -345,7 +348,7 @@ export class DistribucionComponent implements OnInit {
 
   cargarHistorial() {
     this.loadingHistorial = true;
-    this.distribucionService.getHistorial().subscribe({
+    this.distribucionService.getHistorial().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res: any) => { this.historial = res; this.loadingHistorial = false; this.cd.detectChanges(); },
       error: ()        => { this.loadingHistorial = false; this.cd.detectChanges(); }
     });
@@ -360,7 +363,7 @@ export class DistribucionComponent implements OnInit {
     this.referenciaYape = '';
     if (valor === 'yape') {
       this.cargandoQR = true;
-      this.configPagoService.getQR('yape').subscribe({
+      this.configPagoService.getQR('yape').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next:  (res: any) => { this.qrActual = res; this.cargandoQR = false; this.cd.detectChanges(); },
         error: ()         => { this.qrActual = null; this.cargandoQR = false; this.cd.detectChanges(); }
       });
@@ -392,7 +395,7 @@ export class DistribucionComponent implements OnInit {
     }).then(r => {
       if (!r.isConfirmed) return;
       this.procesando = p.pedido_id; this.cd.detectChanges();
-      this.distribucionService.marcarDespachado(p.pedido_id).subscribe({
+      this.distribucionService.marcarDespachado(p.pedido_id).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: () => {
           this.procesando = null;
           this.imprimirNotaDespacho(p);
@@ -413,7 +416,10 @@ export class DistribucionComponent implements OnInit {
     }).then(r => {
       if (!r.isConfirmed) return;
       this.procesando = p.pedido_id; this.cd.detectChanges();
-      this.distribucionService.confirmarCobroYEntrega(p.pedido_id, p.total, p.metodo_pago ?? 'yape', 'CONTADO').subscribe({
+      this.distribucionService.confirmarCobroYEntrega(
+        p.pedido_id,
+        p.total,
+        p.metodo_pago ?? 'yape', 'CONTADO', '').pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: () => { this.procesando = null; Swal.fire({ icon: 'success', title: '¡Entregado!', timer: 2000, showConfirmButton: false }); this.cargar(); this.cargarHistorial(); },
         error: (err) => { this.procesando = null; Swal.fire('Error', err?.error || 'No se pudo actualizar', 'error'); this.cd.detectChanges(); }
       });
@@ -424,7 +430,12 @@ export class DistribucionComponent implements OnInit {
     if (this.tipoPago === 'CONTADO' && this.montoCobrado < this.pedidoCobro.total) { Swal.fire('Atención', 'El monto cobrado no puede ser menor al total', 'warning'); return; }
     if (this.tipoPago === 'CREDITO' && this.montoCobrado < 0) { Swal.fire('Atención', 'El monto no puede ser negativo', 'warning'); return; }
     this.procesando = this.pedidoCobro.pedido_id;
-    this.distribucionService.confirmarCobroYEntrega(this.pedidoCobro.pedido_id, this.montoCobrado, this.metodoCobro, this.tipoPago).subscribe({
+    this.distribucionService.confirmarCobroYEntrega(
+      this.pedidoCobro.pedido_id,
+      this.montoCobrado,
+      this.metodoCobro,
+      this.tipoPago,
+      this.referenciaYape).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         const vuelto = this.montoCobrado - this.pedidoCobro.total;
         this.procesando = null; this.mostrarModalCobro = false; this.cd.detectChanges();
