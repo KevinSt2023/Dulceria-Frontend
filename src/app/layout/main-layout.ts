@@ -79,8 +79,7 @@ import { AuthService } from '../core/auth/auth';
           <a routerLink="/app/categorias"        routerLinkActive="text-cyan-400" class="sub-item">Categorías</a>
           <a routerLink="/app/tipos_productos"   routerLinkActive="text-cyan-400" class="sub-item">Tipos</a>
           <a routerLink="/app/unidades"          routerLinkActive="text-cyan-400" class="sub-item">Unidades</a>
-          <a *ngIf="isAdmin()"
-             routerLink="/app/catalogo-sede"     routerLinkActive="text-cyan-400" class="sub-item">Mi catálogo</a>
+          <a *ngIf="isAdmin()" routerLink="/app/catalogo-sede"     routerLinkActive="text-cyan-400" class="sub-item">Mi catálogo</a>
         </div>
       </div>
 

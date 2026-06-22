@@ -7,13 +7,15 @@ import { ConfiguracionPagoService } from '../../core/services/configuracion-pago
 import { ClientesService } from '../../core/services/clientes';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { Router } from '@angular/router';
 import Swal from 'sweetalert2';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { TicketInternoModalComponent } from './ticket-interno-modal.component';
 
 @Component({
   selector: 'app-pos',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, TicketInternoModalComponent],
   template: `
 <div class="flex h-full gap-0 p-0 -m-4 lg:-m-6" style="background: #f1f5f9">
 
@@ -52,16 +54,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
             💳 Créditos hoy ({{ resumenDia.cantidad_creditos }})
           </p>
           <p class="text-base font-bold text-orange-700">S/ {{ resumenDia.credito_hoy | number:'1.2-2' }}</p>
-        </div>
-        <div class="grid grid-cols-2 divide-x divide-orange-200">
-          <div class="px-2 py-1.5 text-center">
-            <p class="text-xs text-orange-500">Abonado</p>
-            <p class="text-sm font-bold text-orange-700">S/ {{ resumenDia.abonado_credito_hoy | number:'1.2-2' }}</p>
-          </div>
-          <div class="px-2 py-1.5 text-center">
-            <p class="text-xs text-orange-500">Pendiente</p>
-            <p class="text-sm font-bold text-orange-700">S/ {{ resumenDia.pendiente_credito | number:'1.2-2' }}</p>
-          </div>
         </div>
       </div>
     </div>
@@ -177,6 +169,9 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
         <div class="px-3 py-1.5 bg-cyan-50 border-b border-cyan-100 flex justify-between items-center flex-shrink-0">
           <p class="text-xs font-semibold text-cyan-700">
             {{ pedidoSeleccionado.pedido_id ? '📦 Pedido #' + pedidoSeleccionado.pedido_id : '🧾 Venta directa' }}
+            <span *ngIf="tieneEncargos()" class="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+              📦 Incluye encargo
+            </span>
           </p>
           <p class="text-xs text-cyan-600">{{ clienteEncontrado?.nombre || pedidoSeleccionado.cliente }}</p>
         </div>
@@ -193,8 +188,12 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
             </thead>
             <tbody>
               <tr *ngFor="let d of pedidoSeleccionado.detalles; let i = index"
-                  class="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                <td class="p-2 font-medium text-slate-800 text-xs">{{ d.producto }}</td>
+                  class="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                  [ngClass]="d.es_encargo ? 'bg-blue-50/30' : ''">
+                <td class="p-2 font-medium text-slate-800 text-xs">
+                  {{ d.producto }}
+                  <span *ngIf="d.es_encargo" class="ml-1 px-1 py-0 bg-blue-100 text-blue-700 rounded text-xs">encargo</span>
+                </td>
                 <td class="p-2 text-center">
                   <div *ngIf="!pedidoSeleccionado.pedido_id" class="flex items-center justify-center gap-1">
                     <button (click)="cambiarCantidad(i, -1)" class="w-5 h-5 bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-600 rounded font-bold text-xs transition-colors">−</button>
@@ -233,99 +232,170 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
   <!-- ══ PANEL DERECHO — Cobro ══ -->
   <div class="w-72 flex-shrink-0 bg-white flex flex-col overflow-hidden">
 
-    <div class="p-3 border-b border-slate-200"><h3 class="font-bold text-slate-800">Cobro</h3></div>
+    <div class="p-3 border-b border-slate-200">
+      <h3 class="font-bold text-slate-800">{{ tieneEncargos() ? '📦 Pedido con encargo' : 'Cobro' }}</h3>
+      <p *ngIf="tieneEncargos()" class="text-xs text-blue-600 mt-0.5">Se generará ticket interno, no boleta</p>
+    </div>
 
     <div class="flex-1 overflow-y-auto p-3 space-y-3">
 
-      <div>
-        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Comprobante</label>
-        <div class="grid grid-cols-2 gap-1.5">
-          <button *ngFor="let t of tiposComprobante" (click)="seleccionarTipoComprobante(t)"
-                  [ngClass]="form.tipo_comprobante_id === t.tipo_comprobante_id ? 'border-cyan-500 bg-cyan-50 text-cyan-700' : 'border-slate-200 text-slate-500'"
-                  class="border-2 rounded-xl p-2 text-center transition-all">
-            <p class="text-lg mb-0.5">{{ t.codigo_sunat === '01' ? '🧾' : t.codigo_sunat === '03' ? '📄' : '🗒️' }}</p>
-            <p class="text-xs font-bold">{{ t.nombre }}</p>
-            <p class="text-xs opacity-50">{{ t.codigo_sunat }}</p>
-          </button>
-        </div>
-      </div>
+      <!-- BLOQUE NORMAL (sin encargos) -->
+      <ng-container *ngIf="!tieneEncargos()">
 
-      <div *ngIf="tipoSeleccionado?.codigo_sunat === '03'" class="space-y-1.5">
-        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block">
-          DNI del cliente <span class="text-slate-400 font-normal normal-case ml-1">(opcional)</span>
-        </label>
-        <div class="flex gap-1.5">
-          <input [(ngModel)]="docBusqueda" maxlength="8" placeholder="12345678"
-                class="flex-1 p-2 border-2 border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-cyan-400 outline-none"/>
-          <button (click)="buscarCliente()" [disabled]="docBusqueda.length !== 8 || buscandoCliente"
-                  class="px-3 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-sm disabled:opacity-40 transition-colors">
-            {{ buscandoCliente ? '⏳' : '🔍' }}
-          </button>
-        </div>
-        <div *ngIf="clienteEncontrado" class="p-2 bg-emerald-50 border border-emerald-200 rounded-xl">
-          <div class="flex justify-between items-start">
-            <div>
-              <p class="text-xs font-bold text-slate-800">{{ clienteEncontrado.nombre }}</p>
-              <p class="text-xs text-slate-500">DNI: {{ clienteEncontrado.documento }}</p>
-            </div>
-            <button (click)="limpiarCliente()" class="text-slate-400 hover:text-red-500 text-sm">✕</button>
-          </div>
-          <button *ngIf="!clienteEncontrado.encontrado_en_bd" (click)="guardarClienteRapido()"
-                  class="mt-1.5 w-full py-1 bg-blue-500 hover:bg-blue-600 text-white text-xs rounded-lg transition-colors">
-            + Guardar en BD
-          </button>
-        </div>
-        <p class="text-xs text-slate-400">Sin DNI → <span class="font-medium">Cliente General</span></p>
-      </div>
-
-      <div *ngIf="tipoSeleccionado?.codigo_sunat === '01'"
-          class="bg-amber-50 border border-amber-200 rounded-xl p-2.5 space-y-1.5">
-        <label class="text-xs font-semibold text-amber-700 uppercase tracking-wide block">🧾 RUC del cliente *</label>
-        <div class="flex gap-1.5">
-          <input [(ngModel)]="docBusqueda" maxlength="11" placeholder="20123456789"
-                class="flex-1 p-2 border border-amber-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-amber-400 outline-none bg-white"/>
-          <button (click)="buscarCliente()" [disabled]="docBusqueda.length !== 11 || buscandoCliente"
-                  class="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm disabled:opacity-40 transition-colors">
-            {{ buscandoCliente ? '⏳' : '🔍' }}
-          </button>
-        </div>
-        <div *ngIf="clienteEncontrado" class="p-2 bg-white border border-amber-200 rounded-xl">
-          <div class="flex justify-between items-start">
-            <div>
-              <p class="text-xs font-bold text-slate-800">{{ clienteEncontrado.nombre }}</p>
-              <p class="text-xs text-slate-500">RUC: {{ clienteEncontrado.documento }}</p>
-            </div>
-            <button (click)="limpiarCliente()" class="text-slate-400 hover:text-red-500 text-sm">✕</button>
+        <div>
+          <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Comprobante</label>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button *ngFor="let t of tiposComprobante" (click)="seleccionarTipoComprobante(t)"
+                    [ngClass]="form.tipo_comprobante_id === t.tipo_comprobante_id ? 'border-cyan-500 bg-cyan-50 text-cyan-700' : 'border-slate-200 text-slate-500'"
+                    class="border-2 rounded-xl p-2 text-center transition-all">
+              <p class="text-lg mb-0.5">{{ t.codigo_sunat === '01' ? '🧾' : t.codigo_sunat === '03' ? '📄' : '🗒️' }}</p>
+              <p class="text-xs font-bold">{{ t.nombre }}</p>
+              <p class="text-xs opacity-50">{{ t.codigo_sunat }}</p>
+            </button>
           </div>
         </div>
-        <div *ngIf="docBusqueda.length === 11 && !clienteEncontrado && !buscandoCliente" class="space-y-1.5">
-          <p class="text-xs text-amber-600">No encontrado. Ingresa la razón social:</p>
-          <input [(ngModel)]="razonSocialManual" placeholder="Razón social..."
-                class="w-full p-2 border border-amber-300 rounded-lg text-sm outline-none bg-white"/>
-          <button (click)="confirmarClienteManual()" [disabled]="!razonSocialManual.trim()"
-                  class="w-full py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs rounded-lg disabled:opacity-40">
-            ✓ Usar este cliente
-          </button>
-        </div>
-        <p *ngIf="!clienteEncontrado" class="text-xs text-amber-600">⚠️ RUC obligatorio</p>
-      </div>
 
-      <div>
-        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Tipo de pago</label>
-        <div class="grid grid-cols-2 gap-1.5">
-          <button (click)="tipoPago = 'CONTADO'; form.tipo_pago = 'CONTADO'"
-                  [ngClass]="tipoPago === 'CONTADO' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500'"
-                  class="border-2 rounded-xl p-2 text-center transition-all">
-            <p class="text-base">✅</p><p class="text-xs font-semibold">Contado</p>
-          </button>
-          <button (click)="tipoPago = 'CREDITO'; form.tipo_pago = 'CREDITO'; form.monto_inicial = 0"
-                  [ngClass]="tipoPago === 'CREDITO' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-500'"
-                  class="border-2 rounded-xl p-2 text-center transition-all">
-            <p class="text-base">💳</p><p class="text-xs font-semibold">Crédito</p>
-          </button>
+        <div *ngIf="tipoSeleccionado?.codigo_sunat === '03'" class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block">
+            DNI del cliente <span class="text-slate-400 font-normal normal-case ml-1">(opcional)</span>
+          </label>
+          <div class="flex gap-1.5">
+            <input [(ngModel)]="docBusqueda" maxlength="8" placeholder="12345678"
+                  class="flex-1 p-2 border-2 border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-cyan-400 outline-none"/>
+            <button (click)="buscarCliente()" [disabled]="docBusqueda.length !== 8 || buscandoCliente"
+                    class="px-3 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-sm disabled:opacity-40 transition-colors">
+              {{ buscandoCliente ? '⏳' : '🔍' }}
+            </button>
+          </div>
+          <div *ngIf="clienteEncontrado" class="p-2 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <div class="flex justify-between items-start">
+              <div>
+                <p class="text-xs font-bold text-slate-800">{{ clienteEncontrado.nombre }}</p>
+                <p class="text-xs text-slate-500">DNI: {{ clienteEncontrado.documento }}</p>
+              </div>
+              <button (click)="limpiarCliente()" class="text-slate-400 hover:text-red-500 text-sm">✕</button>
+            </div>
+          </div>
         </div>
-      </div>
 
+        <div *ngIf="tipoSeleccionado?.codigo_sunat === '01'"
+            class="bg-amber-50 border border-amber-200 rounded-xl p-2.5 space-y-1.5">
+          <label class="text-xs font-semibold text-amber-700 uppercase tracking-wide block">🧾 RUC del cliente *</label>
+          <div class="flex gap-1.5">
+            <input [(ngModel)]="docBusqueda" maxlength="11" placeholder="20123456789"
+                  class="flex-1 p-2 border border-amber-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-amber-400 outline-none bg-white"/>
+            <button (click)="buscarCliente()" [disabled]="docBusqueda.length !== 11 || buscandoCliente"
+                    class="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm disabled:opacity-40 transition-colors">
+              {{ buscandoCliente ? '⏳' : '🔍' }}
+            </button>
+          </div>
+          <div *ngIf="clienteEncontrado" class="p-2 bg-white border border-amber-200 rounded-xl">
+            <p class="text-xs font-bold text-slate-800">{{ clienteEncontrado.nombre }}</p>
+            <p class="text-xs text-slate-500">RUC: {{ clienteEncontrado.documento }}</p>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Tipo de pago</label>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button (click)="tipoPago = 'CONTADO'; form.tipo_pago = 'CONTADO'"
+                    [ngClass]="tipoPago === 'CONTADO' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 text-slate-500'"
+                    class="border-2 rounded-xl p-2 text-center transition-all">
+              <p class="text-base">✅</p><p class="text-xs font-semibold">Contado</p>
+            </button>
+            <button (click)="tipoPago = 'CREDITO'; form.tipo_pago = 'CREDITO'; form.monto_inicial = 0"
+                    [ngClass]="tipoPago === 'CREDITO' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-500'"
+                    class="border-2 rounded-xl p-2 text-center transition-all">
+              <p class="text-base">💳</p><p class="text-xs font-semibold">Crédito</p>
+            </button>
+          </div>
+        </div>
+
+      </ng-container>
+
+      <!-- BLOQUE CON ENCARGO -->
+      <ng-container *ngIf="tieneEncargos()">
+
+        <!-- DNI obligatorio -->
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-2">
+          <label class="text-xs font-semibold text-blue-700 uppercase tracking-wide block">
+            🆔 DNI o RUC del cliente *
+          </label>
+          <div class="flex gap-1.5">
+            <input [(ngModel)]="docBusqueda" maxlength="11" placeholder="DNI (8) o RUC (11)"
+                   class="flex-1 p-2 border-2 border-blue-300 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-400 outline-none bg-white"/>
+            <button (click)="buscarClientePosMixto()" [disabled]="(docBusqueda.length !== 8 && docBusqueda.length !== 11) || buscandoCliente"
+                    class="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl text-sm disabled:opacity-40">
+              {{ buscandoCliente ? '⏳' : '🔍' }}
+            </button>
+          </div>
+          <div *ngIf="clienteEncontrado" class="p-2 bg-white border border-blue-200 rounded-xl">
+            <p class="text-xs font-bold text-slate-800">{{ clienteEncontrado.nombre }}</p>
+            <p class="text-xs text-slate-500">{{ clienteEncontrado.documento }}</p>
+          </div>
+        </div>
+
+        <!-- Datos de contacto -->
+        <div>
+          <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">
+            📞 Teléfono de contacto *
+          </label>
+          <input [(ngModel)]="posMixtoForm.telefono" placeholder="987654321"
+                 class="w-full p-2 border-2 border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 outline-none"/>
+        </div>
+
+        <!-- Fecha y hora de recojo -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">📅 Fecha *</label>
+            <input type="date" [(ngModel)]="posMixtoForm.fecha_recojo" [min]="hoyStr"
+                   class="w-full p-2 border-2 border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 outline-none"/>
+          </div>
+          <div>
+            <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">⏰ Hora *</label>
+            <input type="time" [(ngModel)]="posMixtoForm.hora_recojo"
+                   class="w-full p-2 border-2 border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 outline-none"/>
+          </div>
+        </div>
+
+        <!-- Tipo de entrega -->
+        <div>
+          <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Tipo de entrega</label>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button (click)="posMixtoForm.tipo_entrega = 'PICKUP'"
+                    [ngClass]="posMixtoForm.tipo_entrega === 'PICKUP' ? 'border-cyan-500 bg-cyan-50 text-cyan-700' : 'border-slate-200 text-slate-500'"
+                    class="border-2 rounded-xl p-2 text-center transition-all text-xs font-semibold">
+              🏪 Recojo
+            </button>
+            <button (click)="posMixtoForm.tipo_entrega = 'DELIVERY'"
+                    [ngClass]="posMixtoForm.tipo_entrega === 'DELIVERY' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-500'"
+                    class="border-2 rounded-xl p-2 text-center transition-all text-xs font-semibold">
+              🛵 Delivery
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="posMixtoForm.tipo_entrega === 'DELIVERY'">
+          <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">
+            Dirección *
+          </label>
+          <input [(ngModel)]="posMixtoForm.direccion" placeholder="Av. Principal 123, Lima"
+                 class="w-full p-2 border-2 border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 outline-none"/>
+        </div>
+
+        <!-- Observaciones -->
+        <div>
+          <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">
+            Observaciones <span class="text-slate-400 font-normal normal-case ml-1">(decoración, mensaje...)</span>
+          </label>
+          <textarea [(ngModel)]="posMixtoForm.observaciones" rows="2"
+                    placeholder="Sabor, decoración, mensaje en torta..."
+                    class="w-full p-2 border-2 border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 outline-none resize-none"></textarea>
+        </div>
+
+      </ng-container>
+
+      <!-- Método de pago (común para ambos flujos) -->
       <div>
         <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Método de pago</label>
         <div class="grid grid-cols-2 gap-1.5">
@@ -345,7 +415,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
             class="w-24 h-24 object-contain mx-auto border bg-white rounded-lg p-1"/>
         <p class="text-xs font-bold text-slate-800 mt-1.5">{{ qrActual.titular }}</p>
         <p class="text-xs text-slate-500">{{ qrActual.numero }}</p>
-        <p class="text-sm font-bold text-emerald-600 mt-0.5">S/ {{ total | number:'1.2-2' }}</p>
       </div>
 
       <div *ngIf="metodoCodigo === 'YAPE' || metodoCodigo === 'PLIN'">
@@ -357,13 +426,30 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
               [ngClass]="form.referencia_pago?.trim() ? 'border-emerald-400' : 'border-red-300'"/>
       </div>
 
-      <div *ngIf="metodoCodigo === 'TARJETA_DEBITO' || metodoCodigo === 'TARJETA_CREDITO' || metodoCodigo === 'TRANSFERENCIA'">
-        <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">N° Referencia</label>
-        <input [(ngModel)]="form.referencia_pago" placeholder="Últimos 4 dígitos o N° operación"
-              class="w-full p-2 border-2 border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 outline-none"/>
+      <!-- MONTO POS MIXTO -->
+      <div *ngIf="tieneEncargos()" class="bg-orange-50 border border-orange-200 rounded-xl p-2.5 space-y-2">
+        <p class="text-xs font-semibold text-orange-700 uppercase tracking-wide">💰 Abono inicial</p>
+        <p *ngIf="porcentajeMinimoEncargo > 0" class="text-xs text-orange-600">
+          Mínimo {{ porcentajeMinimoEncargo }}% del total
+          (S/ {{ (total * porcentajeMinimoEncargo / 100) | number:'1.2-2' }})
+        </p>
+        <p *ngIf="porcentajeMinimoEncargo === 0" class="text-xs text-orange-600">
+          Sin mínimo — puedes registrar sin pago
+        </p>
+        <div class="relative">
+          <span class="absolute left-3 top-2.5 text-slate-500 font-bold text-sm">S/</span>
+          <input type="number" [(ngModel)]="posMixtoForm.monto_abono"
+                 [min]="0" [max]="total" step="0.01"
+                 class="w-full pl-10 p-2.5 border-2 border-orange-300 rounded-xl text-right text-lg font-bold focus:ring-2 focus:ring-orange-400 outline-none bg-white"/>
+        </div>
+        <div class="bg-white border border-orange-200 rounded-xl p-2 text-center">
+          <p class="text-xs text-slate-500 mb-0.5">Saldo a cobrar al recoger</p>
+          <p class="text-xl font-bold text-orange-600">S/ {{ (total - (posMixtoForm.monto_abono || 0)) | number:'1.2-2' }}</p>
+        </div>
       </div>
 
-      <div *ngIf="tipoPago === 'CONTADO' && metodoCodigo === 'EFECTIVO'">
+      <!-- MONTO CONTADO NORMAL -->
+      <div *ngIf="!tieneEncargos() && tipoPago === 'CONTADO' && metodoCodigo === 'EFECTIVO'">
         <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Monto recibido</label>
         <div class="relative">
           <span class="absolute left-3 top-2.5 text-slate-500 font-bold text-sm">S/</span>
@@ -385,7 +471,8 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
         </div>
       </div>
 
-      <div *ngIf="tipoPago === 'CREDITO'" class="bg-orange-50 border border-orange-200 rounded-xl p-2.5 space-y-2">
+      <!-- CREDITO NORMAL -->
+      <div *ngIf="!tieneEncargos() && tipoPago === 'CREDITO'" class="bg-orange-50 border border-orange-200 rounded-xl p-2.5 space-y-2">
         <p class="text-xs font-semibold text-orange-700 uppercase tracking-wide">💳 Venta a crédito</p>
         <div>
           <label class="text-xs text-slate-500 block mb-1">Abono inicial (puede ser 0)</label>
@@ -395,11 +482,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
                   class="w-full pl-10 p-2.5 border-2 border-orange-300 rounded-xl text-right text-lg font-bold focus:ring-2 focus:ring-orange-400 outline-none bg-white"/>
           </div>
         </div>
-        <div *ngIf="total > 0" class="bg-white border border-orange-200 rounded-xl p-2 text-center">
-          <p class="text-xs text-slate-500 mb-0.5">Saldo pendiente a cobrar después</p>
-          <p class="text-xl font-bold text-orange-600">S/ {{ (total - (form.monto_inicial || 0)) | number:'1.2-2' }}</p>
-        </div>
-        <p class="text-xs text-orange-500 text-center">⚠️ No se descuenta vuelto en créditos</p>
       </div>
 
     </div>
@@ -408,139 +490,27 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
       <p *ngIf="!pedidoSeleccionado" class="text-center text-xs text-slate-400 py-1">
         Selecciona un pedido o agrega productos
       </p>
-      <button *ngIf="pedidoSeleccionado" (click)="procesarVenta()"
-              [disabled]="!puedeVender() || procesando"
+      <button *ngIf="pedidoSeleccionado" (click)="cobrar()"
+              [disabled]="!puedeCobrar() || procesando"
               class="w-full py-3.5 rounded-xl text-white font-bold text-sm transition-all disabled:opacity-40 active:scale-95"
-              style="background: linear-gradient(135deg, #0369a1, #0ea5e9)">
+              [style.background]="tieneEncargos()
+                ? 'linear-gradient(135deg, #2563eb, #3b82f6)'
+                : 'linear-gradient(135deg, #0369a1, #0ea5e9)'">
         <span *ngIf="!procesando">
-          {{ tipoPago === 'CREDITO' ? '💳 Registrar crédito' : '✓ Cobrar' }}
+          {{ tieneEncargos() ? '📦 Generar pedido + ticket' : (tipoPago === 'CREDITO' ? '💳 Registrar crédito' : '✓ Cobrar') }}
           S/ {{ total | number:'1.2-2' }}
         </span>
-        <span *ngIf="procesando" class="flex items-center justify-center gap-2">
-          <span class="animate-spin">⏳</span> Procesando...
-        </span>
+        <span *ngIf="procesando">⏳ Procesando...</span>
       </button>
     </div>
+    
   </div>
-
-  <!-- ══ MODAL ENCARGO ══ -->
-  <div *ngIf="mostrarModalEncargo"
-       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col" style="max-height:90vh">
-
-      <div class="flex justify-between items-center p-5 border-b border-slate-200 flex-shrink-0">
-        <div>
-          <h3 class="text-lg font-bold text-slate-800">📦 Pedido por encargo</h3>
-          <p class="text-xs text-slate-500 mt-0.5">{{ productoEncargo?.nombre }} — S/ {{ productoEncargo?.precio | number:'1.2-2' }}</p>
-        </div>
-        <button (click)="cerrarModalEncargo()" class="text-slate-400 hover:text-slate-600 text-xl">✕</button>
-      </div>
-
-      <div class="flex-1 overflow-y-auto p-5 space-y-3">
-
-        <div>
-          <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Cantidad</label>
-          <div class="flex items-center gap-2">
-            <button (click)="encargoForm.cantidad = Math.max(1, encargoForm.cantidad - 1)"
-                    class="w-9 h-9 bg-slate-100 hover:bg-slate-200 rounded-lg font-bold">−</button>
-            <input type="number" [(ngModel)]="encargoForm.cantidad" min="1"
-                   class="flex-1 p-2 border-2 border-slate-200 rounded-xl text-center text-lg font-bold focus:ring-2 focus:ring-cyan-400 outline-none"/>
-            <button (click)="encargoForm.cantidad = encargoForm.cantidad + 1"
-                    class="w-9 h-9 bg-slate-100 hover:bg-slate-200 rounded-lg font-bold">+</button>
-          </div>
-          <p class="text-xs text-slate-400 mt-1 text-right">
-            Total: <b class="text-emerald-600">S/ {{ (productoEncargo?.precio * encargoForm.cantidad) | number:'1.2-2' }}</b>
-          </p>
-        </div>
-
-        <div>
-          <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">
-            DNI o RUC del cliente <span class="text-red-500">*</span>
-          </label>
-          <div class="flex gap-1.5">
-            <input [(ngModel)]="encargoForm.doc" maxlength="11" placeholder="DNI (8) o RUC (11)"
-                   class="flex-1 p-2 border-2 border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-cyan-400 outline-none"/>
-            <button (click)="buscarClienteEncargo()" [disabled]="(encargoForm.doc.length !== 8 && encargoForm.doc.length !== 11) || buscandoClienteEncargo"
-                    class="px-3 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-xl text-sm disabled:opacity-40">
-              {{ buscandoClienteEncargo ? '⏳' : '🔍' }}
-            </button>
-          </div>
-          <div *ngIf="encargoForm.cliente_nombre" class="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl">
-            <p class="text-xs font-bold text-slate-800">{{ encargoForm.cliente_nombre }}</p>
-            <p class="text-xs text-slate-500">{{ encargoForm.doc }}</p>
-          </div>
-        </div>
-
-        <div>
-          <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">
-            Teléfono <span class="text-red-500">*</span>
-          </label>
-          <input [(ngModel)]="encargoForm.telefono" placeholder="987654321"
-                 class="w-full p-2 border-2 border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 outline-none"/>
-        </div>
-
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">📅 Fecha entrega *</label>
-            <input type="date" [(ngModel)]="encargoForm.fecha_entrega" [min]="hoyStr"
-                   class="w-full p-2 border-2 border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 outline-none"/>
-          </div>
-          <div>
-            <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">⏰ Hora *</label>
-            <input type="time" [(ngModel)]="encargoForm.hora_entrega"
-                   class="w-full p-2 border-2 border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 outline-none"/>
-          </div>
-        </div>
-
-        <div>
-          <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">Tipo de entrega</label>
-          <div class="grid grid-cols-2 gap-1.5">
-            <button (click)="encargoForm.tipo = 'PICKUP'"
-                    [ngClass]="encargoForm.tipo === 'PICKUP' ? 'border-cyan-500 bg-cyan-50 text-cyan-700' : 'border-slate-200 text-slate-500'"
-                    class="border-2 rounded-xl p-2 text-center transition-all text-xs font-semibold">
-              🏪 Recojo en tienda
-            </button>
-            <button (click)="encargoForm.tipo = 'DELIVERY'"
-                    [ngClass]="encargoForm.tipo === 'DELIVERY' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-slate-200 text-slate-500'"
-                    class="border-2 rounded-xl p-2 text-center transition-all text-xs font-semibold">
-              🛵 Delivery
-            </button>
-          </div>
-        </div>
-
-        <div *ngIf="encargoForm.tipo === 'DELIVERY'">
-          <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">
-            Dirección de entrega <span class="text-red-500">*</span>
-          </label>
-          <input [(ngModel)]="encargoForm.direccion" placeholder="Av. Principal 123, Lima"
-                 class="w-full p-2 border-2 border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 outline-none"/>
-        </div>
-
-        <div>
-          <label class="text-xs font-semibold text-slate-500 uppercase tracking-wide block mb-1.5">
-            Observaciones <span class="text-slate-400 font-normal normal-case ml-1">(opcional)</span>
-          </label>
-          <textarea [(ngModel)]="encargoForm.observaciones" rows="2"
-                    placeholder="Sabor, decoración, mensaje en torta..."
-                    class="w-full p-2 border-2 border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-cyan-400 outline-none resize-none"></textarea>
-        </div>
-
-      </div>
-
-      <div class="flex gap-2 p-5 border-t border-slate-200 flex-shrink-0">
-        <button (click)="cerrarModalEncargo()"
-                class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-sm font-medium transition-colors">
-          Cancelar
-        </button>
-        <button (click)="registrarEncargo()" [disabled]="!puedeRegistrarEncargo() || procesandoEncargo"
-                class="flex-1 py-2.5 text-white rounded-xl text-sm font-semibold disabled:opacity-40"
-                style="background: linear-gradient(135deg, #2563eb, #3b82f6)">
-          {{ procesandoEncargo ? '⏳ Procesando...' : '📦 Registrar pedido' }}
-        </button>
-      </div>
-    </div>
-  </div>
-
+  <app-ticket-interno-modal
+    *ngIf="ticketModalId"
+    [ticketId]="ticketModalId"
+    (onCerrar)="cerrarTicketModal()">
+  </app-ticket-interno-modal>
+  
 </div>
   `
 })
@@ -557,8 +527,11 @@ export class PosComponent implements OnInit {
   qrActual:          any   = null;
   itemsVentaDirecta: any[] = [];
 
+  // Config de la empresa (cargada al iniciar)
+  porcentajeMinimoEncargo = 0;
+  diasMaxAbandono = 30;
+  ticketModalId: number | null = null;
   docBusqueda        = '';
-  razonSocialManual  = '';
   clienteEncontrado: any = null;
   buscandoCliente    = false;
 
@@ -579,24 +552,17 @@ export class PosComponent implements OnInit {
 
   montosRapidos = [10, 20, 50, 100, 200];
 
-  // ── Modal de encargo ──
-  mostrarModalEncargo    = false;
-  productoEncargo: any   = null;
-  procesandoEncargo      = false;
-  buscandoClienteEncargo = false;
-  hoyStr                 = new Date().toISOString().split('T')[0];
+  hoyStr = new Date().toISOString().split('T')[0];
 
-  encargoForm: any = {
-    cantidad:        1,
-    doc:             '',
-    cliente_id:      null,
-    cliente_nombre:  '',
-    telefono:        '',
-    fecha_entrega:   '',
-    hora_entrega:    '',
-    tipo:            'PICKUP',
-    direccion:       '',
-    observaciones:   ''
+  // Formulario para POS Mixto (encargo)
+  posMixtoForm: any = {
+    telefono: '',
+    fecha_recojo: '',
+    hora_recojo: '14:00',
+    tipo_entrega: 'PICKUP',
+    direccion: '',
+    observaciones: '',
+    monto_abono: 0
   };
 
   private bufferScanner = '';
@@ -622,6 +588,7 @@ export class PosComponent implements OnInit {
     private productoService:   ProductosService,
     private clienteService:    ClientesService,
     private http:              HttpClient,
+    private router:            Router,
     private cd:                ChangeDetectorRef
   ) {}
 
@@ -631,6 +598,28 @@ export class PosComponent implements OnInit {
     this.cargarTiposComprobante();
     this.cargarResumenDia();
     this.cargarCatalogo();
+    this.cargarConfigEmpresa();
+    this.posMixtoForm.fecha_recojo = this.hoyStr;
+  }
+
+  cargarConfigEmpresa() {
+    this.http.get<any>(`${environment.apiUrl}/configuracion-negocio`)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          this.porcentajeMinimoEncargo = res.porcentaje_minimo_encargo ?? 0;
+          this.diasMaxAbandono = res.dias_max_pedido_abandonado ?? 30;
+          this.cd.detectChanges();
+        }
+      });
+  }
+
+  cerrarTicketModal() {
+    this.ticketModalId = null;
+    this.limpiar();
+    this.cargarPedidos();
+    this.cargarCatalogo();
+    this.cd.detectChanges();
   }
 
   get tipoSeleccionado() {
@@ -647,270 +636,64 @@ export class PosComponent implements OnInit {
     return p.permite_pedido_sin_stock === true && (p.stock_disponible ?? 0) <= 0;
   }
 
-  // ── Click en producto: si es por encargo → modal, sino → ticket ──
+  /** Verifica si el ticket actual incluye al menos 1 item de encargo */
+  tieneEncargos(): boolean {
+    return this.itemsVentaDirecta.some((i: any) => i.es_encargo);
+  }
+
+  // ── Click en producto: ya NO abre modal aparte. Se agrega al ticket marcado como encargo si aplica ──
   onClickProducto(p: any) {
-    if (this.esPorEncargo(p)) {
-      this.abrirModalEncargo(p);
-    } else {
-      this.agregarProductoDirecto(p);
-    }
-  }
-
-  // ── Modal de encargo ──
-  abrirModalEncargo(p: any) {
-    this.productoEncargo = p;
-    this.encargoForm = {
-      cantidad:       1,
-      doc:            '',
-      cliente_id:     null,
-      cliente_nombre: '',
-      telefono:       '',
-      fecha_entrega:  this.hoyStr,
-      hora_entrega:   '14:00',
-      tipo:           'PICKUP',
-      direccion:      '',
-      observaciones:  ''
-    };
-    this.mostrarModalEncargo = true;
-    this.cd.detectChanges();
-  }
-
-  cerrarModalEncargo() {
-    this.mostrarModalEncargo = false;
-    this.productoEncargo     = null;
-    this.cd.detectChanges();
-  }
-
-  buscarClienteEncargo() {
-    if (this.buscandoClienteEncargo) return;
-    const longitud = this.encargoForm.doc.length;
-    if (longitud !== 8 && longitud !== 11) return;
-
-    this.buscandoClienteEncargo  = true;
-    this.encargoForm.cliente_id  = null;
-    this.encargoForm.cliente_nombre = '';
-    this.cd.detectChanges();
-
-    const obs = longitud === 11
-      ? this.clienteService.consultarRUC(this.encargoForm.doc)
-      : this.clienteService.consultarDNI(this.encargoForm.doc);
-
-    obs.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (res: any) => {
-        this.encargoForm.cliente_id     = res.cliente_id ?? null;
-        this.encargoForm.cliente_nombre = res.nombre;
-        this.buscandoClienteEncargo     = false;
-        this.cd.detectChanges();
-      },
-      error: () => {
-        this.buscandoClienteEncargo = false;
-        Swal.fire('No encontrado', longitud === 11 ? 'RUC no encontrado' : 'DNI no encontrado', 'warning');
-        this.cd.detectChanges();
-      }
-    });
-  }
-
-  puedeRegistrarEncargo(): boolean {
-    if (this.encargoForm.cantidad < 1)                 return false;
-    if (!this.encargoForm.cliente_nombre?.trim())      return false;
-    if (!this.encargoForm.telefono?.trim())            return false;
-    if (!this.encargoForm.fecha_entrega)               return false;
-    if (!this.encargoForm.hora_entrega)                return false;
-    if (this.encargoForm.tipo === 'DELIVERY'
-        && !this.encargoForm.direccion?.trim())        return false;
-    return true;
-  }
-
-  registrarEncargo() {
-    if (!this.puedeRegistrarEncargo() || this.procesandoEncargo) return;
-
-    this.procesandoEncargo = true;
-
-    const fechaHora = `${this.encargoForm.fecha_entrega} ${this.encargoForm.hora_entrega}`;
-    const observacionesCompletas =
-      `Entrega: ${fechaHora} | Tel: ${this.encargoForm.telefono}` +
-      (this.encargoForm.observaciones ? ` | ${this.encargoForm.observaciones}` : '');
-
-    const dto = {
-      cliente_id:        this.encargoForm.cliente_id ?? 0,
-      observaciones:     observacionesCompletas,
-      direccion_entrega: this.encargoForm.tipo === 'DELIVERY' ? this.encargoForm.direccion : null,
-      tipos_pedido:      this.encargoForm.tipo,
-      pagado:            false,
-      metodo_pago:       null,
-      referencia_pago:   null,
-      detalles: [{
-        producto_id: this.productoEncargo.producto_id,
-        cantidad:    this.encargoForm.cantidad,
-        precio:      this.productoEncargo.precio
-      }]
-    };
-
-    this.http.post(`${environment.apiUrl}/pedidos`, dto)
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe({
-        next: (res: any) => {
-          this.procesandoEncargo = false;
-          Swal.fire({
-            icon: 'success',
-            title: '¡Pedido registrado!',
-            html: `
-              <div style="text-align:left;font-size:14px;line-height:1.8">
-                <p style="font-size:22px;font-weight:bold;color:#2563eb;text-align:center;margin-bottom:8px">
-                  📦 Pedido #${res.pedido_id}
-                </p>
-                <p><b>Cliente:</b> ${this.encargoForm.cliente_nombre}</p>
-                <p><b>Producto:</b> ${this.encargoForm.cantidad}× ${this.productoEncargo.nombre}</p>
-                <p><b>Entrega:</b> ${fechaHora}</p>
-                <p><b>Tipo:</b> ${this.encargoForm.tipo === 'PICKUP' ? 'Recojo en tienda' : 'Delivery'}</p>
-                <p style="color:#ea580c;margin-top:8px"><b>Se cobra al entregar</b></p>
-              </div>`,
-            confirmButtonText: 'Listo',
-            confirmButtonColor: '#0ea5e9'
-          }).then(() => {
-            this.cerrarModalEncargo();
-            this.cargarPedidos();
-          });
-        },
-        error: (err) => {
-          this.procesandoEncargo = false;
-          let msg = 'No se pudo registrar el pedido';
-          if (typeof err.error === 'string') msg = err.error;
-          else if (err.error?.mensaje)       msg = err.error.mensaje;
-          Swal.fire('Error', msg, 'error');
-          this.cd.detectChanges();
-        }
-      });
-  }
-
-  @HostListener('document:keydown', ['$event'])
-  onKeyDown(e: KeyboardEvent) {
-    const tag = (e.target as HTMLElement).tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-    if (this.mostrarModalEncargo) return;
-    if (e.key === 'Enter') {
-      if (this.bufferScanner.length > 3) { this.codigoBarras = this.bufferScanner; this.buscarPorCodigo(); }
-      this.bufferScanner = '';
-      clearTimeout(this.timerScanner);
-    } else {
-      this.bufferScanner += e.key;
-      clearTimeout(this.timerScanner);
-      this.timerScanner = setTimeout(() => { this.bufferScanner = ''; }, 100);
-    }
-  }
-
-  cargarCatalogo() {
-    this.cargandoCatalogo = true;
-    this.productoService.getProductosDisponibles().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (res: any[]) => { this.catalogoCompleto = res; this.catalogoFiltrado = res; this.cargandoCatalogo = false; this.cd.detectChanges(); },
-      error: ()           => { this.cargandoCatalogo = false; this.cd.detectChanges(); }
-    });
-  }
-
-  filtrarCatalogo() {
-    const q = this.busquedaManual.toLowerCase().trim();
-    this.catalogoFiltrado = q
-      ? this.catalogoCompleto.filter(p => p.nombre.toLowerCase().includes(q))
-      : this.catalogoCompleto;
-    this.cd.detectChanges();
-  }
-
-  seleccionarTipoComprobante(t: any) {
-    this.form.tipo_comprobante_id = t.tipo_comprobante_id;
-    this.limpiarCliente();
-    this.cd.detectChanges();
-  }
-
-  buscarCliente() {
-    if (this.buscandoCliente) return;
-    const esFactura = this.tipoSeleccionado?.codigo_sunat === '01';
-    const longitud  = esFactura ? 11 : 8;
-    if (this.docBusqueda.length !== longitud) return;
-
-    this.buscandoCliente   = true;
-    this.clienteEncontrado = null;
-    this.cd.detectChanges();
-
-    const obs = esFactura
-      ? this.clienteService.consultarRUC(this.docBusqueda)
-      : this.clienteService.consultarDNI(this.docBusqueda);
-
-    obs.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (res: any) => { this.clienteEncontrado = res; this.form.cliente_id = res.cliente_id ?? null; this.buscandoCliente = false; this.cd.detectChanges(); },
-      error: () => {
-        this.clienteEncontrado = null;
-        this.buscandoCliente   = false;
-        Swal.fire('No encontrado', esFactura ? 'RUC no encontrado en SUNAT' : 'DNI no encontrado en RENIEC', 'warning');
-        this.cd.detectChanges();
-      }
-    });
-  }
-
-  guardarClienteRapido() {
-    if (!this.clienteEncontrado) return;
-    this.clienteService.createClientes({
-      nombre: this.clienteEncontrado.nombre, documento: this.clienteEncontrado.documento,
-      direccion: this.clienteEncontrado.direccion ?? '', activo: true
-    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (res: any) => {
-        this.clienteEncontrado.encontrado_en_bd = true;
-        this.clienteEncontrado.cliente_id       = res.cliente_id;
-        this.form.cliente_id                    = res.cliente_id;
-        this.cd.detectChanges();
-        Swal.fire({ icon: 'success', title: 'Cliente guardado', timer: 1500, showConfirmButton: false });
-      },
-      error: (err) => Swal.fire('Error', err.error || 'No se pudo guardar', 'error')
-    });
-  }
-
-  confirmarClienteManual() {
-    if (!this.razonSocialManual.trim()) return;
-    this.clienteEncontrado = { nombre: this.razonSocialManual, documento: this.docBusqueda, encontrado_en_bd: false, cliente_id: null };
-    this.form.cliente_id   = null;
-    this.cd.detectChanges();
-  }
-
-  limpiarCliente() {
-    this.clienteEncontrado = null;
-    this.docBusqueda       = '';
-    this.razonSocialManual = '';
-    this.form.cliente_id   = this.pedidoSeleccionado?.cliente_id ?? null;
-    this.cd.detectChanges();
-  }
-
-  buscarPorCodigo() {
-    if (!this.codigoBarras.trim()) return;
-    this.productoService.buscarProducto(this.codigoBarras).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-      next: (res: any[]) => {
-        if (res.length === 1)    this.onClickProducto(res[0]);
-        else if (res.length > 1) this.catalogoFiltrado = this.catalogoCompleto.filter(p => res.some((r: any) => r.producto_id === p.producto_id));
-        else Swal.fire({ icon: 'warning', title: 'Producto no encontrado', text: `Código: ${this.codigoBarras}`, timer: 2000, showConfirmButton: false });
-        this.codigoBarras = '';
-        this.cd.detectChanges();
-      }
-    });
-  }
-
-  agregarProductoDirecto(p: any) {
     if (!this.pedidoSeleccionado) this.iniciarVentaDirecta();
-    const existente = this.itemsVentaDirecta.find((i: any) => i.producto_id === p.producto_id);
-    if (existente) { existente.cantidad++; existente.subtotal = existente.precio * existente.cantidad; }
-    else this.itemsVentaDirecta.push({ producto_id: p.producto_id, producto: p.nombre, cantidad: 1, precio: p.precio, subtotal: p.precio });
+
+    const esEncargo = this.esPorEncargo(p);
+    const existente = this.itemsVentaDirecta.find((i: any) =>
+      i.producto_id === p.producto_id && i.es_encargo === esEncargo);
+
+    if (existente) {
+      existente.cantidad++;
+      existente.subtotal = existente.precio * existente.cantidad;
+    } else {
+      this.itemsVentaDirecta.push({
+        producto_id: p.producto_id,
+        producto: p.nombre,
+        cantidad: 1,
+        precio: p.precio,
+        subtotal: p.precio,
+        es_encargo: esEncargo
+      });
+    }
+
     this.recalcularVentaDirecta();
     this.cd.detectChanges();
   }
 
   iniciarVentaDirecta() {
-    this.pedidoSeleccionado = { pedido_id: null, cliente: 'Cliente general', cliente_doc: '', cliente_id: null, detalles: [], total: 0 };
-    this.form.pedido_id     = null;
-    this.form.cliente_id    = null;
+    this.pedidoSeleccionado = {
+      pedido_id: null,
+      cliente: 'Cliente general',
+      cliente_doc: '',
+      cliente_id: null,
+      detalles: [],
+      total: 0
+    };
+    this.form.pedido_id  = null;
+    this.form.cliente_id = null;
   }
 
   recalcularVentaDirecta() {
     const total = this.itemsVentaDirecta.reduce((sum: number, i: any) => sum + i.subtotal, 0);
     this.pedidoSeleccionado.detalles = this.itemsVentaDirecta;
-    this.form.detalles = this.itemsVentaDirecta.map((i: any) => ({ producto_id: i.producto_id, cantidad: i.cantidad, precio_unitario: i.precio }));
+    this.form.detalles = this.itemsVentaDirecta.map((i: any) => ({
+      producto_id: i.producto_id,
+      cantidad: i.cantidad,
+      precio_unitario: i.precio
+    }));
     this.calcularTotales(total);
+
+    // Si tiene encargos, ajustar monto_abono al mínimo configurado
+    if (this.tieneEncargos() && this.porcentajeMinimoEncargo > 0) {
+      this.posMixtoForm.monto_abono = Math.round(total * this.porcentajeMinimoEncargo / 100 * 100) / 100;
+    }
   }
 
   cambiarCantidad(index: number, delta: number) {
@@ -941,7 +724,7 @@ export class PosComponent implements OnInit {
     this.ventasService.getMetodosPago().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: (res) => {
         this.metodosPago = res;
-        const efectivo   = res.find((m: any) => m.codigo === 'EFECTIVO');
+        const efectivo = res.find((m: any) => m.codigo === 'EFECTIVO');
         if (efectivo) { this.form.metodo_pago_id = efectivo.metodo_pago_id; this.metodoCodigo = 'EFECTIVO'; }
         this.cd.detectChanges();
       }
@@ -964,28 +747,126 @@ export class PosComponent implements OnInit {
     });
   }
 
+  cargarCatalogo() {
+    this.cargandoCatalogo = true;
+    this.productoService.getProductosDisponibles().pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (res: any[]) => { this.catalogoCompleto = res; this.catalogoFiltrado = res; this.cargandoCatalogo = false; this.cd.detectChanges(); },
+      error: ()           => { this.cargandoCatalogo = false; this.cd.detectChanges(); }
+    });
+  }
+
+  filtrarCatalogo() {
+    const q = this.busquedaManual.toLowerCase().trim();
+    this.catalogoFiltrado = q
+      ? this.catalogoCompleto.filter(p => p.nombre.toLowerCase().includes(q))
+      : this.catalogoCompleto;
+    this.cd.detectChanges();
+  }
+
+  seleccionarTipoComprobante(t: any) {
+    this.form.tipo_comprobante_id = t.tipo_comprobante_id;
+    this.limpiarCliente();
+    this.cd.detectChanges();
+  }
+
+  buscarCliente() {
+    if (this.buscandoCliente) return;
+    const esFactura = this.tipoSeleccionado?.codigo_sunat === '01';
+    const longitud = esFactura ? 11 : 8;
+    if (this.docBusqueda.length !== longitud) return;
+
+    this.buscandoCliente = true;
+    this.clienteEncontrado = null;
+    this.cd.detectChanges();
+
+    const obs = esFactura
+      ? this.clienteService.consultarRUC(this.docBusqueda)
+      : this.clienteService.consultarDNI(this.docBusqueda);
+
+    obs.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (res: any) => {
+        this.clienteEncontrado = res;
+        this.form.cliente_id = res.cliente_id ?? null;
+        this.buscandoCliente = false;
+        this.cd.detectChanges();
+      },
+      error: () => {
+        this.buscandoCliente = false;
+        Swal.fire('No encontrado', esFactura ? 'RUC no encontrado' : 'DNI no encontrado', 'warning');
+        this.cd.detectChanges();
+      }
+    });
+  }
+
+  buscarClientePosMixto() {
+    if (this.buscandoCliente) return;
+    const longitud = this.docBusqueda.length;
+    if (longitud !== 8 && longitud !== 11) return;
+
+    this.buscandoCliente = true;
+    this.clienteEncontrado = null;
+    this.cd.detectChanges();
+
+    const obs = longitud === 11
+      ? this.clienteService.consultarRUC(this.docBusqueda)
+      : this.clienteService.consultarDNI(this.docBusqueda);
+
+    obs.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (res: any) => {
+        this.clienteEncontrado = res;
+        this.buscandoCliente = false;
+        this.cd.detectChanges();
+      },
+      error: () => {
+        this.buscandoCliente = false;
+        Swal.fire('No encontrado', 'DNI/RUC no encontrado', 'warning');
+        this.cd.detectChanges();
+      }
+    });
+  }
+
+  limpiarCliente() {
+    this.clienteEncontrado = null;
+    this.docBusqueda = '';
+    this.form.cliente_id = this.pedidoSeleccionado?.cliente_id ?? null;
+    this.cd.detectChanges();
+  }
+
+  buscarPorCodigo() {
+    if (!this.codigoBarras.trim()) return;
+    this.productoService.buscarProducto(this.codigoBarras).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: (res: any[]) => {
+        if (res.length === 1) this.onClickProducto(res[0]);
+        else if (res.length > 1) this.catalogoFiltrado = this.catalogoCompleto.filter(p => res.some((r: any) => r.producto_id === p.producto_id));
+        else Swal.fire({ icon: 'warning', title: 'Producto no encontrado', text: `Código: ${this.codigoBarras}`, timer: 2000, showConfirmButton: false });
+        this.codigoBarras = '';
+        this.cd.detectChanges();
+      }
+    });
+  }
+
   seleccionarPedido(p: any) {
     this.pedidoSeleccionado = p;
-    this.form.pedido_id     = p.pedido_id;
-    this.form.cliente_id    = p.cliente_id;
-    this.form.detalles      = [];
-    this.form.monto_pagado  = p.total;
-    this.vuelto             = 0;
+    this.form.pedido_id = p.pedido_id;
+    this.form.cliente_id = p.cliente_id;
+    this.form.detalles = [];
+    this.form.monto_pagado = p.total;
+    this.vuelto = 0;
     this.limpiarCliente();
     this.calcularTotales(p.total);
     this.cd.detectChanges();
   }
 
   calcularTotales(totalConIgv: number) {
-    this.total    = totalConIgv;
+    this.total = totalConIgv;
     this.subtotal = Math.round((totalConIgv / 1.18) * 100) / 100;
-    this.igv      = Math.round((totalConIgv - this.subtotal) * 100) / 100;
+    this.igv = Math.round((totalConIgv - this.subtotal) * 100) / 100;
   }
 
   seleccionarMetodo(m: any) {
-    this.form.metodo_pago_id  = m.metodo_pago_id;
-    this.metodoCodigo         = m.codigo;
-    this.qrActual             = null;
+    this.form.metodo_pago_id = m.metodo_pago_id;
+    this.metodoCodigo = m.codigo;
+    this.qrActual = null;
     this.form.referencia_pago = '';
     if (m.codigo === 'YAPE' || m.codigo === 'PLIN') {
       this.form.monto_pagado = this.total;
@@ -1008,14 +889,35 @@ export class PosComponent implements OnInit {
     this.cd.detectChanges();
   }
 
-  puedeVender(): boolean {
-    if (!this.pedidoSeleccionado)                                                return false;
-    if (!this.form.tipo_comprobante_id)                                          return false;
-    if (!this.form.metodo_pago_id)                                               return false;
-    if (this.pedidoSeleccionado?.detalles?.length === 0)                         return false;
+  puedeCobrar(): boolean {
+    if (!this.pedidoSeleccionado) return false;
+    if (this.pedidoSeleccionado.detalles?.length === 0) return false;
+    if (!this.form.metodo_pago_id) return false;
+
+    // POS Mixto: validaciones adicionales
+    if (this.tieneEncargos()) {
+      if (!this.clienteEncontrado) return false;
+      if (!this.posMixtoForm.telefono?.trim()) return false;
+      if (!this.posMixtoForm.fecha_recojo || !this.posMixtoForm.hora_recojo) return false;
+      if (this.posMixtoForm.tipo_entrega === 'DELIVERY' && !this.posMixtoForm.direccion?.trim()) return false;
+
+      // Validar mínimo
+      const montoMinimo = this.total * this.porcentajeMinimoEncargo / 100;
+      if (this.posMixtoForm.monto_abono < montoMinimo) return false;
+
+      // Validar referencia si es Yape/Plin
+      if ((this.metodoCodigo === 'YAPE' || this.metodoCodigo === 'PLIN')
+          && !this.form.referencia_pago?.trim()) return false;
+
+      return true;
+    }
+
+    // Flujo normal
+    if (!this.form.tipo_comprobante_id) return false;
     if (this.tipoSeleccionado?.codigo_sunat === '01' && !this.clienteEncontrado) return false;
     if ((this.metodoCodigo === 'YAPE' || this.metodoCodigo === 'PLIN')
-        && !this.form.referencia_pago?.trim())                                   return false;
+        && !this.form.referencia_pago?.trim()) return false;
+
     if (this.tipoPago === 'CONTADO') {
       if (this.metodoCodigo === 'EFECTIVO') return this.form.monto_pagado >= this.total;
       return true;
@@ -1025,35 +927,127 @@ export class PosComponent implements OnInit {
     return true;
   }
 
-  procesarVenta() {
-    if (!this.puedeVender() || this.procesando) return;
+  /** Botón único: si tiene encargos → POS Mixto, sino → flujo normal */
+  cobrar() {
+    if (this.tieneEncargos()) this.procesarPosMixto();
+    else this.procesarVenta();
+  }
 
+  procesarPosMixto() {
+    if (!this.puedeCobrar() || this.procesando) return;
+
+    const fechaRecojo = `${this.posMixtoForm.fecha_recojo}T${this.posMixtoForm.hora_recojo}:00`;
+
+    const dto = {
+      cliente_id: this.clienteEncontrado?.cliente_id ?? null,
+      documento_cliente: this.clienteEncontrado?.documento ?? this.docBusqueda,
+      nombre_cliente: this.clienteEncontrado?.nombre ?? 'Cliente',
+      telefono_contacto: this.posMixtoForm.telefono,
+      detalles: this.itemsVentaDirecta.map((i: any) => ({
+        producto_id: i.producto_id,
+        cantidad: i.cantidad,
+        precio_unitario: i.precio,
+        es_encargo: i.es_encargo
+      })),
+      tipo_entrega: this.posMixtoForm.tipo_entrega,
+      direccion_entrega: this.posMixtoForm.direccion,
+      fecha_recojo_estimada: fechaRecojo,
+      observaciones: this.posMixtoForm.observaciones,
+      metodo_pago_id: this.form.metodo_pago_id,
+      monto_abono: this.posMixtoForm.monto_abono,
+      referencia_pago: this.form.referencia_pago
+    };
+
+    Swal.fire({
+      title: '¿Generar pedido?',
+      html: `
+        <div style="text-align:left;font-size:14px;line-height:2">
+          <p><b>Cliente:</b> ${this.clienteEncontrado?.nombre}</p>
+          <p><b>Total:</b> S/ ${this.total.toFixed(2)}</p>
+          <p><b>Abono:</b> S/ ${this.posMixtoForm.monto_abono.toFixed(2)}</p>
+          <p style="color:#ea580c"><b>Saldo: S/ ${(this.total - this.posMixtoForm.monto_abono).toFixed(2)}</b></p>
+          <p><b>Entrega:</b> ${this.posMixtoForm.fecha_recojo} ${this.posMixtoForm.hora_recojo}</p>
+          <hr/>
+          <p style="font-size:12px;color:#2563eb">Se generará TICKET INTERNO (no boleta). La boleta se emitirá al entregar.</p>
+        </div>`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Generar pedido + ticket',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#2563eb'
+    }).then(r => {
+      if (!r.isConfirmed) return;
+      this.procesando = true;
+      this.cd.detectChanges();
+
+      this.http.post(`${environment.apiUrl}/ventas/pos-mixto`, dto)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: (res: any) => {
+            this.procesando = false;
+            Swal.fire({
+              icon: 'success',
+              title: '¡Pedido registrado!',
+              html: `
+                <div style="text-align:center">
+                  <p style="font-size:24px;font-weight:bold;color:#2563eb">${res.ticket_numero}</p>
+                  <p style="color:#6b7280;font-size:13px">Ticket interno</p>
+                  <hr style="margin:12px 0"/>
+                  <div style="font-size:14px;text-align:left;line-height:2">
+                    <p><b>Pedido:</b> #${res.pedido_id}</p>
+                    <p><b>Total:</b> S/ ${res.total.toFixed(2)}</p>
+                    <p><b>Abonado:</b> S/ ${res.monto_abonado.toFixed(2)}</p>
+                    <p style="color:#ea580c"><b>Saldo:</b> S/ ${res.saldo_pendiente.toFixed(2)}</p>
+                  </div>
+                </div>`,
+              showCancelButton: true,
+              confirmButtonText: '🖨️ Ver ticket',
+              cancelButtonText: 'Nueva venta',
+              confirmButtonColor: '#2563eb'
+            }).then(r2 => {
+              if (r2.isConfirmed) {
+                // Abrir el modal del ticket (NO navegar)
+                this.ticketModalId = res.ticket_id;
+                this.cd.detectChanges();
+                // El limpiar() se ejecutará cuando se cierre el modal
+                return;
+              }
+              this.limpiar();
+              this.cargarPedidos();
+              this.cargarCatalogo();
+            });
+          },
+          error: (err) => {
+            this.procesando = false;
+            let msg = 'No se pudo registrar el pedido';
+            if (err.error?.mensaje) msg = err.error.mensaje;
+            else if (typeof err.error === 'string') msg = err.error;
+            Swal.fire('Error', msg, 'error');
+            this.cd.detectChanges();
+          }
+        });
+    });
+  }
+
+  procesarVenta() {
+    // Lógica existente para venta normal (sin cambios)
     if (this.clienteEncontrado?.cliente_id) this.form.cliente_id = this.clienteEncontrado.cliente_id;
     this.form.tipo_pago = this.tipoPago;
 
-    const metodo         = this.metodosPago.find(m => m.metodo_pago_id === this.form.metodo_pago_id);
-    const tipo           = this.tiposComprobante.find(t => t.tipo_comprobante_id === this.form.tipo_comprobante_id);
-    const saldoPendiente = this.total - (this.form.monto_inicial ?? 0);
+    const metodo = this.metodosPago.find(m => m.metodo_pago_id === this.form.metodo_pago_id);
+    const tipo = this.tiposComprobante.find(t => t.tipo_comprobante_id === this.form.tipo_comprobante_id);
 
     Swal.fire({
       title: '¿Confirmar venta?',
-      html: `
-        <div style="text-align:left;font-size:14px;line-height:2">
-          <p><b>Cliente:</b> ${this.clienteEncontrado?.nombre || this.pedidoSeleccionado.cliente}</p>
+      html: `<div style="text-align:left;font-size:14px;line-height:2">
           <p><b>Total:</b> S/ ${this.total.toFixed(2)}</p>
           <p><b>Comprobante:</b> ${tipo?.nombre}</p>
-          <p><b>Pago:</b> ${metodo?.nombre}</p>
-          <p><b>Tipo:</b> ${this.tipoPago}</p>
-          ${this.tipoPago === 'CREDITO'
-            ? `<p style="color:#ea580c"><b>Saldo pendiente: S/ ${saldoPendiente.toFixed(2)}</b></p>`
-            : this.metodoCodigo === 'EFECTIVO' && this.vuelto > 0
-              ? `<p style="color:#2563eb"><b>Vuelto: S/ ${this.vuelto.toFixed(2)}</b></p>`
-              : ''}
+          <p><b>Pago:</b> ${metodo?.nombre} (${this.tipoPago})</p>
         </div>`,
-      icon:               'question',
-      showCancelButton:   true,
-      confirmButtonText:  this.tipoPago === 'CREDITO' ? '💳 Registrar crédito' : 'Sí, cobrar',
-      cancelButtonText:   'Cancelar',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, cobrar',
+      cancelButtonText: 'Cancelar',
       confirmButtonColor: '#0ea5e9'
     }).then(r => {
       if (!r.isConfirmed) return;
@@ -1064,25 +1058,12 @@ export class PosComponent implements OnInit {
         next: (res: any) => {
           this.procesando = false;
           Swal.fire({
-            icon:  'success',
-            title: res.tipo_pago === 'CREDITO' ? '¡Crédito registrado!' : '¡Venta registrada!',
-            html: `
-              <div style="text-align:center">
-                <p style="font-size:26px;font-weight:bold;color:#16a34a">${res.numero_formato}</p>
-                <p style="color:#6b7280;font-size:13px">${tipo?.nombre}</p>
-                <hr style="margin:12px 0"/>
-                <div style="font-size:14px;text-align:left;line-height:2">
-                  <p>Subtotal: S/ ${res.subtotal.toFixed(2)}</p>
-                  <p>IGV (18%): S/ ${res.igv.toFixed(2)}</p>
-                  <p><b>Total: S/ ${res.total.toFixed(2)}</b></p>
-                  ${res.tipo_pago === 'CREDITO' && res.saldo_pendiente > 0
-                    ? `<p style="color:#ea580c"><b>Saldo pendiente: S/ ${res.saldo_pendiente.toFixed(2)}</b></p>`
-                    : res.vuelto > 0
-                      ? `<p style="color:#2563eb"><b>Vuelto: S/ ${res.vuelto.toFixed(2)}</b></p>`
-                      : ''}
-                </div>
-              </div>`,
-            confirmButtonText:  '✓ Nueva venta',
+            icon: 'success',
+            title: '¡Venta registrada!',
+            html: `<p style="font-size:24px;font-weight:bold;color:#16a34a">${res.numero_formato}</p>
+                   <p>Total: S/ ${res.total.toFixed(2)}</p>
+                   ${res.vuelto > 0 ? `<p style="color:#2563eb">Vuelto: S/ ${res.vuelto.toFixed(2)}</p>` : ''}`,
+            confirmButtonText: 'Nueva venta',
             confirmButtonColor: '#0ea5e9'
           }).then(() => { this.limpiar(); this.cargarPedidos(); this.cargarResumenDia(); this.cargarCatalogo(); });
         },
@@ -1090,9 +1071,7 @@ export class PosComponent implements OnInit {
           this.procesando = false;
           let msg = 'No se pudo procesar la venta';
           if (typeof err.error === 'string') msg = err.error;
-          else if (err.error?.mensaje)       msg = err.error.mensaje;
-          else if (err.error?.message)       msg = err.error.message;
-          else if (err.error?.title)         msg = err.error.title;
+          else if (err.error?.mensaje) msg = err.error.mensaje;
           Swal.fire('Error', msg, 'error');
           this.cd.detectChanges();
         }
@@ -1102,17 +1081,26 @@ export class PosComponent implements OnInit {
 
   limpiar() {
     this.pedidoSeleccionado = null;
-    this.itemsVentaDirecta  = [];
-    this.busquedaManual     = '';
-    this.catalogoFiltrado   = this.catalogoCompleto;
-    this.vuelto             = -1;
-    this.qrActual           = null;
-    this.metodoCodigo       = 'EFECTIVO';
-    this.tipoPago           = 'CONTADO';
-    this.subtotal           = 0;
-    this.igv                = 0;
-    this.total              = 0;
+    this.itemsVentaDirecta = [];
+    this.busquedaManual = '';
+    this.catalogoFiltrado = this.catalogoCompleto;
+    this.vuelto = -1;
+    this.qrActual = null;
+    this.metodoCodigo = 'EFECTIVO';
+    this.tipoPago = 'CONTADO';
+    this.subtotal = 0;
+    this.igv = 0;
+    this.total = 0;
     this.limpiarCliente();
+    this.posMixtoForm = {
+      telefono: '',
+      fecha_recojo: this.hoyStr,
+      hora_recojo: '14:00',
+      tipo_entrega: 'PICKUP',
+      direccion: '',
+      observaciones: '',
+      monto_abono: 0
+    };
     this.form = {
       pedido_id:           null,
       cliente_id:          null,
@@ -1138,5 +1126,20 @@ export class PosComponent implements OnInit {
       'TRANSFERENCIA':   '🏦'
     };
     return m[codigo] ?? '💰';
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onKeyDown(e: KeyboardEvent) {
+    const tag = (e.target as HTMLElement).tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    if (e.key === 'Enter') {
+      if (this.bufferScanner.length > 3) { this.codigoBarras = this.bufferScanner; this.buscarPorCodigo(); }
+      this.bufferScanner = '';
+      clearTimeout(this.timerScanner);
+    } else {
+      this.bufferScanner += e.key;
+      clearTimeout(this.timerScanner);
+      this.timerScanner = setTimeout(() => { this.bufferScanner = ''; }, 100);
+    }
   }
 }

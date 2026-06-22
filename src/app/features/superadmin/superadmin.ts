@@ -326,6 +326,39 @@ import { Router } from '@angular/router';
               </button>
             </div>
           </div>
+
+          <!-- ↓↓↓ SECCIÓN POS MIXTO ↓↓↓ -->
+          <div class="span-2">
+            <div class="seccion-pos-mixto">
+              <p class="seccion-pos-titulo">Pedidos por encargo</p>
+
+              <div class="grid-pos-mixto">
+                <div class="campo">
+                  <label>% mínimo de abono inicial</label>
+                  <input type="number"
+                         min="0" max="100" step="0.01"
+                         [(ngModel)]="formConfig.porcentaje_minimo_encargo"
+                         class="input"/>
+                  <p class="campo-help">
+                    0 = sin mínimo · {{ formConfig.porcentaje_minimo_encargo || 0 }}% del total
+                  </p>
+                </div>
+
+                <div class="campo">
+                  <label>Días para abandono</label>
+                  <input type="number"
+                         min="1" max="365"
+                         [(ngModel)]="formConfig.dias_max_pedido_abandonado"
+                         class="input"/>
+                  <p class="campo-help">
+                    Si el cliente no recoge en {{ formConfig.dias_max_pedido_abandonado || 30 }} días, libera stock
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- ↑↑↑ FIN SECCIÓN POS MIXTO ↑↑↑ -->
+
         </div>
 
         <!-- Tab Logo -->
@@ -807,6 +840,28 @@ import { Router } from '@angular/router';
     }
     .toggle-dot.dot-on { transform: translateX(18px); }
 
+    /* SECCIÓN POS MIXTO */
+    .seccion-pos-mixto {
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 14px;
+      background: #f8fafc;
+    }
+    .seccion-pos-titulo {
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin: 0 0 10px 0;
+    }
+    .grid-pos-mixto {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 600px) { .grid-pos-mixto { grid-template-columns: 1fr; } }
+
     /* TAB LOGO */
     .tab-logo { display: flex; flex-direction: column; gap: 16px; }
     .logo-info {
@@ -1027,15 +1082,17 @@ export class SuperAdminComponent implements OnInit {
     };
 
     this.formConfig = {
-      razon_social:            e.config?.razon_social ?? e.nombre,
-      nombre_comercial:        e.config?.nombre_comercial ?? '',
-      ruc:                     e.config?.ruc ?? e.ruc ?? '',
-      email:                   e.email ?? '',
-      telefono:                e.telefono ?? '',
-      direccion:               e.config?.direccion ?? '',
-      pie_comprobante:         'Gracias por su preferencia',
-      facturacion_electronica: e.config?.facturacion_electronica ?? false,
-      logo_base64:             ''
+      razon_social:               e.config?.razon_social ?? e.nombre,
+      nombre_comercial:           e.config?.nombre_comercial ?? '',
+      ruc:                        e.config?.ruc ?? e.ruc ?? '',
+      email:                      e.email ?? '',
+      telefono:                   e.telefono ?? '',
+      direccion:                  e.config?.direccion ?? '',
+      pie_comprobante:            'Gracias por su preferencia',
+      facturacion_electronica:    e.config?.facturacion_electronica ?? false,
+      porcentaje_minimo_encargo:  e.config?.porcentaje_minimo_encargo ?? 0,
+      dias_max_pedido_abandonado: e.config?.dias_max_pedido_abandonado ?? 30,
+      logo_base64:                ''
     };
 
     // Si tiene logo, cargarlo para el preview
@@ -1049,6 +1106,13 @@ export class SuperAdminComponent implements OnInit {
         next: (res) => {
           if (res.config) {
             this.formConfig.pie_comprobante = res.config.pie_comprobante ?? 'Gracias por su preferencia';
+            // También refrescar los valores POS Mixto desde la respuesta completa
+            if (res.config.porcentaje_minimo_encargo !== undefined) {
+              this.formConfig.porcentaje_minimo_encargo = res.config.porcentaje_minimo_encargo;
+            }
+            if (res.config.dias_max_pedido_abandonado !== undefined) {
+              this.formConfig.dias_max_pedido_abandonado = res.config.dias_max_pedido_abandonado;
+            }
           }
           this.cd.detectChanges();
         }
@@ -1216,5 +1280,5 @@ export class SuperAdminComponent implements OnInit {
       queryParams: { tenantId: empresa.tenant_id }
     });
   }
-  
+
 }

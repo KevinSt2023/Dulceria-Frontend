@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, DestroyRef, inject, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
@@ -167,29 +167,111 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
           </div>
         </div>
 
-        <!-- PASO 2: Productos (con precios editables) -->
+        <!-- ══ PASO 2: Productos con BUSCADOR ══ -->
         <div *ngIf="paso === 2">
-          <div class="flex gap-2 mb-3">
-            <select [(ngModel)]="nuevoItem.producto_id" class="flex-1 p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-400 outline-none">
-              <option [ngValue]="null">-- Selecciona producto --</option>
-              <option *ngFor="let p of productos" [ngValue]="p.producto_id" [disabled]="!p.permite_pedido_sin_stock && p.stock_disponible === 0">
-                {{ p.nombre }} — S/ {{ p.precio }} {{ !p.permite_pedido_sin_stock ? '(stock: ' + p.stock_disponible + ')' : '(encargo)' }}
-              </option>
-            </select>
-            <input type="number" [(ngModel)]="nuevoItem.cantidad" min="1" class="w-20 p-2.5 border border-gray-200 rounded-xl text-center text-sm focus:ring-2 focus:ring-blue-400 outline-none"/>
-            <button (click)="agregarItem()" class="bg-green-500 hover:bg-green-600 text-white px-4 rounded-xl text-sm font-medium transition-colors">+ Agregar</button>
+
+          <!-- BUSCADOR -->
+          <div class="relative mb-3">
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">🔍</span>
+              <input #buscadorInput type="text"
+                     [(ngModel)]="busquedaProducto"
+                     (ngModelChange)="filtrarProductos()"
+                     (keyup.enter)="agregarPrimerResultado()"
+                     (focus)="mostrarResultados = true"
+                     placeholder="Buscar producto por nombre, código de barras o categoría..."
+                     class="w-full pl-10 pr-10 py-2.5 border-2 border-gray-200 rounded-xl text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-colors"/>
+              <button *ngIf="busquedaProducto"
+                      (click)="limpiarBusqueda()"
+                      class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none">✕</button>
+            </div>
+
+            <p *ngIf="!busquedaProducto" class="text-xs text-gray-400 mt-1.5">
+              💡 Escribe para buscar entre {{ productos.length }} productos · Presiona Enter para agregar el primer resultado
+            </p>
+
+            <!-- RESULTADOS -->
+            <div *ngIf="busquedaProducto && productosFiltrados.length > 0"
+                 class="mt-2 border border-gray-200 rounded-xl bg-white shadow-sm max-h-80 overflow-y-auto">
+              <div *ngFor="let p of productosFiltrados; let i = index"
+                   (click)="agregarProductoDirecto(p)"
+                   [ngClass]="{
+                     'cursor-pointer hover:bg-blue-50': !sinStock(p),
+                     'opacity-60 cursor-not-allowed bg-gray-50': sinStock(p)
+                   }"
+                   class="flex items-center gap-3 p-3 border-b last:border-b-0 transition-colors">
+
+                <!-- Indicador numérico (1-9 visible) -->
+                <span *ngIf="i < 9" class="text-xs font-mono text-gray-300 w-4">{{ i + 1 }}</span>
+
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-gray-800 truncate" [innerHTML]="resaltar(p.nombre)"></p>
+                  <div class="flex items-center gap-2 mt-0.5">
+                    <span *ngIf="p.categoria" class="text-xs text-gray-400">{{ p.categoria }}</span>
+                    <span *ngIf="p.codigo_barras" class="text-xs text-gray-300 font-mono">{{ p.codigo_barras }}</span>
+                  </div>
+                </div>
+
+                <!-- Precio -->
+                <div class="text-right flex-shrink-0">
+                  <p class="text-sm font-bold text-green-600 font-mono">S/ {{ p.precio | number:'1.2-2' }}</p>
+                  <p class="text-xs" [ngClass]="{
+                    'text-gray-400': p.permite_pedido_sin_stock,
+                    'text-red-500 font-semibold': sinStock(p) && !p.permite_pedido_sin_stock,
+                    'text-amber-600 font-semibold': stockBajo(p) && !p.permite_pedido_sin_stock,
+                    'text-gray-500': !stockBajo(p) && !sinStock(p) && !p.permite_pedido_sin_stock
+                  }">
+                    <ng-container *ngIf="p.permite_pedido_sin_stock">encargo</ng-container>
+                    <ng-container *ngIf="!p.permite_pedido_sin_stock">
+                      {{ p.stock_disponible }} {{ p.unidad_nombre || 'und' }}
+                    </ng-container>
+                  </p>
+                </div>
+
+                <!-- Badge sin stock -->
+                <span *ngIf="sinStock(p)"
+                      class="text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700 px-2 py-0.5 rounded">
+                  Sin stock
+                </span>
+                <span *ngIf="!sinStock(p) && !p.permite_pedido_sin_stock && stockBajo(p)"
+                      class="text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
+                  Stock bajo
+                </span>
+
+                <!-- Icono agregar -->
+                <span *ngIf="!sinStock(p)"
+                      class="w-7 h-7 bg-blue-500 text-white rounded-full flex items-center justify-center text-lg flex-shrink-0">+</span>
+              </div>
+            </div>
+
+            <!-- Sin resultados -->
+            <div *ngIf="busquedaProducto && productosFiltrados.length === 0"
+                 class="mt-2 border border-gray-200 rounded-xl bg-white p-6 text-center text-sm text-gray-400">
+              No se encontraron productos con <b>"{{ busquedaProducto }}"</b>
+            </div>
+
+            <!-- Indicador de "ver más" -->
+            <div *ngIf="busquedaProducto && hayMasResultados"
+                 class="mt-1 text-xs text-gray-400 text-center italic">
+              Mostrando 10 de {{ totalCoincidencias }} resultados. Refina tu búsqueda para ver más.
+            </div>
           </div>
 
-          <p class="text-xs text-gray-400 mb-2">💡 Puedes editar el precio de cada producto si necesitas ajustarlo según la zona o cliente</p>
+          <p class="text-xs text-gray-400 mb-2 mt-3">
+            💡 Puedes editar el precio de cada producto si necesitas ajustarlo según la zona o cliente
+          </p>
 
+          <!-- CARRITO -->
           <div class="border border-gray-100 rounded-xl bg-gray-50 max-h-72 overflow-y-auto mb-4">
-            <div *ngIf="form.detalles.length === 0" class="p-6 text-center text-gray-400 text-sm">Sin productos — agrega al menos uno</div>
+            <div *ngIf="form.detalles.length === 0" class="p-6 text-center text-gray-400 text-sm">
+              Sin productos — busca y agrega al menos uno
+            </div>
 
             <div *ngFor="let d of form.detalles; let i = index"
                  class="bg-white border-b last:border-b-0 p-3"
                  [ngClass]="{
                    'border-l-4 border-l-red-500': esPrecioBajoCosto(d),
-                   'border-l-4 border-l-amber-400': !esPrecioBajoCosto(d) && (esVariacionAlta(d)),
+                   'border-l-4 border-l-amber-400': !esPrecioBajoCosto(d) && esVariacionAlta(d),
                    'border-l-4 border-l-yellow-300': !esPrecioBajoCosto(d) && !esVariacionAlta(d) && esPrecioModificado(d)
                  }">
 
@@ -204,7 +286,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
                   </p>
                 </div>
 
-                <!-- Cantidad -->
                 <div class="flex flex-col items-center">
                   <span class="text-xs text-gray-400 mb-0.5">Cant.</span>
                   <input type="number" [(ngModel)]="d.cantidad" (ngModelChange)="recalcular(d)"
@@ -212,7 +293,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
                          class="w-16 border border-gray-200 p-1.5 text-center rounded-lg text-sm focus:ring-2 focus:ring-blue-400 outline-none"/>
                 </div>
 
-                <!-- PRECIO EDITABLE -->
                 <div class="flex flex-col items-center relative">
                   <span class="text-xs text-gray-400 mb-0.5">Precio S/</span>
                   <input type="number" step="0.01" [(ngModel)]="d.precio" (ngModelChange)="recalcular(d)"
@@ -225,7 +305,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
                            'border-gray-200 focus:ring-2 focus:ring-blue-400': !esPrecioModificado(d)
                          }"/>
 
-                  <!-- Badge variación -->
                   <span *ngIf="esPrecioModificado(d)"
                         class="absolute -top-1 -right-1 px-1 rounded text-[10px] font-bold font-mono"
                         [ngClass]="{
@@ -237,7 +316,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
                   </span>
                 </div>
 
-                <!-- Subtotal -->
                 <div class="flex flex-col items-end ml-2">
                   <span class="text-xs text-gray-400 mb-0.5">Subtotal</span>
                   <span class="font-bold text-sm text-green-600 font-mono">S/ {{ d.subtotal | number:'1.2-2' }}</span>
@@ -247,7 +325,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
                         class="text-red-400 hover:text-red-600 w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 transition-colors text-lg ml-1">✕</button>
               </div>
 
-              <!-- Alertas inline -->
               <div *ngIf="esPrecioBajoCosto(d)" class="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 px-2 py-1 rounded">
                 ⚠ Precio por debajo del costo (S/ {{ d.costo | number:'1.2-2' }})
               </div>
@@ -258,7 +335,12 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
           </div>
 
           <div class="flex justify-between items-center mb-4 bg-green-50 border border-green-100 rounded-xl p-3">
-            <span class="text-sm text-gray-600 font-medium">Total del pedido</span>
+            <span class="text-sm text-gray-600 font-medium">
+              Total del pedido
+              <span *ngIf="form.detalles.length > 0" class="text-xs text-gray-400 ml-2">
+                ({{ form.detalles.length }} ítem{{ form.detalles.length !== 1 ? 's' : '' }})
+              </span>
+            </span>
             <span class="text-xl font-bold text-green-600 font-mono">S/ {{ total | number:'1.2-2' }}</span>
           </div>
           <div class="flex justify-between">
@@ -286,7 +368,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
             </button>
           </div>
 
-          <!-- DELIVERY -->
           <div *ngIf="form.tipos_pedido === 'DELIVERY'" class="space-y-4">
             <div>
               <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-2">Método de pago</label>
@@ -381,7 +462,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
             </div>
           </div>
 
-          <!-- PICKUP -->
           <div *ngIf="form.tipos_pedido === 'PICKUP'" class="space-y-3">
             <div>
               <label class="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-2">Sucursal de recojo</label>
@@ -516,12 +596,22 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 })
 export class PedidosComponent implements OnInit {
 
+  @ViewChild('buscadorInput') buscadorInput?: ElementRef<HTMLInputElement>;
+
   pedidos:       any[] = [];
   productos:     any[] = [];
   sucursales:    any[] = [];
   departamentos: any[] = [];
   provincias:    any[] = [];
   distritos:     any[] = [];
+
+  // ── BUSCADOR ──
+  busquedaProducto       = '';
+  productosFiltrados: any[] = [];
+  totalCoincidencias     = 0;
+  hayMasResultados       = false;
+  mostrarResultados      = false;
+  readonly MAX_RESULTADOS = 10;
 
   paso  = 1;
   pasos = ['Cliente', 'Productos', 'Entrega'];
@@ -558,7 +648,6 @@ export class PedidosComponent implements OnInit {
   };
 
   entrega: any = { departamento_id: null, provincia_id: null, distrito_id: null, direccion: '' };
-  nuevoItem: any = { producto_id: null, cantidad: 1 };
   mostrarModal = false;
   loading      = true;
   guardando    = false;
@@ -597,14 +686,174 @@ export class PedidosComponent implements OnInit {
     this.entrega = { departamento_id: null, provincia_id: null, distrito_id: null, direccion: '' };
     this.dniBusqueda = ''; this.clienteEncontrado = null;
     this.mostrarFormCliente = false; this.usandoDireccionCliente = false;
-    this.nuevoItem = { producto_id: null, cantidad: 1 };
+    this.busquedaProducto = '';
+    this.productosFiltrados = [];
     this.productosService.getProductosDisponibles().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => { this.productos = res; this.cd.detectChanges(); });
     this.sucursalesService.getSucursalesPickup().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => { this.sucursales = res.filter((s: any) => s.activo); this.cd.detectChanges(); });
     this.ubigeoService.getDepartamentos().pipe(takeUntilDestroyed(this.destroyRef)).subscribe((res: any) => { this.departamentos = res; this.cd.detectChanges(); });
   }
 
   cerrarModal() { this.mostrarModal = false; }
-  irPaso(n: number) { this.paso = n; this.cd.detectChanges(); }
+
+  irPaso(n: number) {
+    this.paso = n;
+    this.cd.detectChanges();
+    // Auto-foco al buscador al entrar al paso 2
+    if (n === 2) {
+      setTimeout(() => this.buscadorInput?.nativeElement.focus(), 100);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // BUSCADOR DE PRODUCTOS
+  // ═══════════════════════════════════════════════════════════════
+
+  filtrarProductos() {
+    const q = this.normalizar(this.busquedaProducto);
+    if (!q) {
+      this.productosFiltrados = [];
+      this.totalCoincidencias = 0;
+      this.hayMasResultados = false;
+      return;
+    }
+
+    const todasCoincidencias = this.productos.filter(p => {
+      const nombre    = this.normalizar(p.nombre ?? '');
+      const categoria = this.normalizar(p.categoria ?? '');
+      const codigoBarras = this.normalizar(p.codigo_barras ?? '');
+      return nombre.includes(q) || categoria.includes(q) || codigoBarras.includes(q);
+    });
+
+    // Ordenar: primero los que empiezan con la búsqueda, luego los que la contienen
+    todasCoincidencias.sort((a, b) => {
+      const aEmpieza = this.normalizar(a.nombre ?? '').startsWith(q) ? 0 : 1;
+      const bEmpieza = this.normalizar(b.nombre ?? '').startsWith(q) ? 0 : 1;
+      if (aEmpieza !== bEmpieza) return aEmpieza - bEmpieza;
+      // luego por stock disponible (con stock primero)
+      return (b.stock_disponible ?? 0) - (a.stock_disponible ?? 0);
+    });
+
+    this.totalCoincidencias = todasCoincidencias.length;
+    this.productosFiltrados = todasCoincidencias.slice(0, this.MAX_RESULTADOS);
+    this.hayMasResultados = todasCoincidencias.length > this.MAX_RESULTADOS;
+  }
+
+  /** Quita acentos y pasa a minúsculas para comparar */
+  private normalizar(texto: string): string {
+    return (texto ?? '')
+      .toString()
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  }
+
+  /** Resalta el texto coincidente con la búsqueda */
+  resaltar(texto: string): string {
+    if (!texto || !this.busquedaProducto) return texto ?? '';
+    const q = this.busquedaProducto.trim();
+    if (!q) return texto;
+    // Escapar caracteres especiales del regex
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escaped})`, 'gi');
+    return texto.replace(regex, '<mark style="background:#fef08a;color:#854d0e;padding:0 2px;border-radius:2px;font-weight:600">$1</mark>');
+  }
+
+  limpiarBusqueda() {
+    this.busquedaProducto = '';
+    this.productosFiltrados = [];
+    this.totalCoincidencias = 0;
+    this.hayMasResultados = false;
+    setTimeout(() => this.buscadorInput?.nativeElement.focus(), 50);
+  }
+
+  sinStock(p: any): boolean {
+    if (p.permite_pedido_sin_stock) return false;
+    return (p.stock_disponible ?? 0) <= 0;
+  }
+
+  stockBajo(p: any): boolean {
+    if (p.permite_pedido_sin_stock) return false;
+    return (p.stock_disponible ?? 0) > 0 && (p.stock_disponible ?? 0) <= 5;
+  }
+
+  /** Agrega producto directo desde el resultado de búsqueda */
+  agregarProductoDirecto(p: any) {
+    if (this.sinStock(p)) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Sin stock',
+        text: `"${p.nombre}" no tiene stock disponible y no permite pedido sin stock.`
+      });
+      return;
+    }
+
+    // Validar stock acumulado
+    if (!p.permite_pedido_sin_stock) {
+      const yaEnCarrito = this.form.detalles
+        .filter((d: any) => d.producto_id === p.producto_id)
+        .reduce((sum: number, d: any) => sum + Number(d.cantidad), 0);
+      if (yaEnCarrito + 1 > p.stock_disponible) {
+        Swal.fire({
+          icon: 'warning',
+          title: 'Stock insuficiente',
+          html: `Solo hay <b>${p.stock_disponible}</b> unidad(es) disponibles de "<b>${p.nombre}</b>".`
+        });
+        return;
+      }
+    }
+
+    const existente = this.form.detalles.find((d: any) => d.producto_id === p.producto_id);
+    if (existente) {
+      existente.cantidad += 1;
+      this.recalcular(existente);
+    } else {
+      this.form.detalles.push({
+        producto_id: p.producto_id,
+        producto: p.nombre,
+        cantidad: 1,
+        precio: p.precio,
+        precio_original: p.precio,
+        costo: p.costo ?? 0,
+        subtotal: p.precio,
+        stock_actual: p.stock_disponible,
+        permite_pedido_sin_stock: p.permite_pedido_sin_stock
+      });
+    }
+
+    // Limpiar buscador y volver a enfocarlo para seguir agregando
+    this.limpiarBusqueda();
+  }
+
+  /** Enter en el buscador → agrega el primer resultado */
+  agregarPrimerResultado() {
+    const primero = this.productosFiltrados.find(p => !this.sinStock(p));
+    if (primero) this.agregarProductoDirecto(primero);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // HELPERS DE PRECIO VARIABLE
+  // ═══════════════════════════════════════════════════════════════
+  variacionPrecio(d: any): number {
+    if (!d.precio_original || d.precio_original === 0) return 0;
+    return ((Number(d.precio) - d.precio_original) / d.precio_original) * 100;
+  }
+  esPrecioModificado(d: any): boolean { return Math.abs(Number(d.precio) - d.precio_original) > 0.01; }
+  esPrecioBajoCosto(d: any): boolean { return Number(d.precio) < (d.costo ?? 0); }
+  esVariacionAlta(d: any): boolean { return Math.abs(this.variacionPrecio(d)) > 50; }
+
+  recalcular(d: any) {
+    const precio = Number(d.precio) || 0;
+    const cantidad = Number(d.cantidad) || 0;
+    d.subtotal = precio * cantidad;
+  }
+
+  eliminarItem(i: number) { this.form.detalles.splice(i, 1); }
+  get total() { return this.form.detalles.reduce((a: number, b: any) => a + Number(b.subtotal || 0), 0); }
+
+  // ═══════════════════════════════════════════════════════════════
+  // RESTO DE LÓGICA (sin cambios)
+  // ═══════════════════════════════════════════════════════════════
 
   seleccionarMetodo(metodo: string, pagado: boolean) {
     this.form.metodo_pago     = metodo;
@@ -703,72 +952,17 @@ export class PedidosComponent implements OnInit {
     return false;
   }
 
-  agregarItem() {
-    if (!this.nuevoItem.producto_id) { Swal.fire('Atención', 'Selecciona un producto', 'warning'); return; }
-    if (!this.nuevoItem.cantidad || this.nuevoItem.cantidad < 1) { Swal.fire('Atención', 'La cantidad debe ser mayor a 0', 'warning'); return; }
-    const prod = this.productos.find(p => p.producto_id === this.nuevoItem.producto_id);
-    if (!prod.permite_pedido_sin_stock) {
-      const yaEnCarrito = this.form.detalles.filter((d: any) => d.producto_id === prod.producto_id).reduce((sum: number, d: any) => sum + d.cantidad, 0);
-      const totalSolicitado = yaEnCarrito + this.nuevoItem.cantidad;
-      if (prod.stock_disponible === 0) { Swal.fire({ icon: 'error', title: 'Sin stock', text: `"${prod.nombre}" no tiene stock disponible.` }); return; }
-      if (totalSolicitado > prod.stock_disponible) { Swal.fire({ icon: 'warning', title: 'Stock insuficiente', html: `Solo hay <b>${prod.stock_disponible}</b> unidad(es) disponibles de "<b>${prod.nombre}</b>".` }); return; }
-    }
-    const existente = this.form.detalles.find((d: any) => d.producto_id === prod.producto_id);
-    if (existente) { existente.cantidad += this.nuevoItem.cantidad; this.recalcular(existente); }
-    else {
-      this.form.detalles.push({
-        producto_id: prod.producto_id,
-        producto: prod.nombre,
-        cantidad: this.nuevoItem.cantidad,
-        precio: prod.precio,
-        precio_original: prod.precio,        // ← NUEVO
-        costo: prod.costo ?? 0,              // ← NUEVO
-        subtotal: prod.precio * this.nuevoItem.cantidad,
-        stock_actual: prod.stock_disponible,
-        permite_pedido_sin_stock: prod.permite_pedido_sin_stock
-      });
-    }
-    this.nuevoItem = { producto_id: null, cantidad: 1 };
-  }
-
-  recalcular(d: any) {
-    const precio = Number(d.precio) || 0;
-    const cantidad = Number(d.cantidad) || 0;
-    d.subtotal = precio * cantidad;
-  }
-
-  eliminarItem(i: number) { this.form.detalles.splice(i, 1); }
-  get total() { return this.form.detalles.reduce((a: number, b: any) => a + Number(b.subtotal || 0), 0); }
-
-  // ═══════════════════════════════════════════════════════════════
-  // HELPERS DE PRECIO VARIABLE
-  // ═══════════════════════════════════════════════════════════════
-  variacionPrecio(d: any): number {
-    if (!d.precio_original || d.precio_original === 0) return 0;
-    return ((Number(d.precio) - d.precio_original) / d.precio_original) * 100;
-  }
-  esPrecioModificado(d: any): boolean {
-    return Math.abs(Number(d.precio) - d.precio_original) > 0.01;
-  }
-  esPrecioBajoCosto(d: any): boolean {
-    return Number(d.precio) < (d.costo ?? 0);
-  }
-  esVariacionAlta(d: any): boolean {
-    return Math.abs(this.variacionPrecio(d)) > 50;
-  }
-
   async guardarPedido() {
     if (this.guardando) return;
 
-    // ── Validación: precios bajo costo ──
     const bajoCosto = this.form.detalles.filter((d: any) => this.esPrecioBajoCosto(d));
     if (bajoCosto.length > 0) {
       const lista = bajoCosto.map((d: any) =>
         `${d.producto}: S/ ${Number(d.precio).toFixed(2)} (costo S/ ${Number(d.costo).toFixed(2)})`
       ).join('<br>');
-      const res = await Swal.fire({
+      await Swal.fire({
         title: 'Precio por debajo del costo',
-        html: `Los siguientes productos se venden bajo costo:<br><br><div style="text-align:left;font-size:13px">${lista}</div><br>El sistema bloqueará el pedido si lo confirmas. ¿Quieres revisar los precios?`,
+        html: `Los siguientes productos se venden bajo costo:<br><br><div style="text-align:left;font-size:13px">${lista}</div><br>El sistema bloqueará el pedido si lo confirmas. Revisa los precios.`,
         icon: 'error',
         confirmButtonText: 'Revisar precios',
         confirmButtonColor: '#dc2626'
@@ -776,7 +970,6 @@ export class PedidosComponent implements OnInit {
       return;
     }
 
-    // ── Validación: variaciones >50% (warning, permite continuar) ──
     const variacionesAltas = this.form.detalles.filter((d: any) =>
       this.esPrecioModificado(d) && this.esVariacionAlta(d)
     );
@@ -810,7 +1003,6 @@ export class PedidosComponent implements OnInit {
       this.form.direccion_entrega = suc?.direccion ?? '';
     }
 
-    // ── Armar payload SOLO con campos que espera el backend (incluye precio editado) ──
     const payload = {
       cliente_id: this.form.cliente_id,
       tipos_pedido: this.form.tipos_pedido,
@@ -823,7 +1015,7 @@ export class PedidosComponent implements OnInit {
       detalles: this.form.detalles.map((d: any) => ({
         producto_id: d.producto_id,
         cantidad: d.cantidad,
-        precio: Number(d.precio)   // ← envía el precio editado
+        precio: Number(d.precio)
       }))
     };
 

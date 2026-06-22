@@ -193,6 +193,13 @@ export const routes: Routes = [
             .then(m => m.ReportesComponent)
       },
 
+      {
+        path: 'app/ticket-interno/:id',
+        loadComponent: () => import('./features/tickets-internos/ticket-interno')
+          .then(m => m.TicketInternoComponent),
+        canActivate: [authGuard]
+      },
+
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]
   },

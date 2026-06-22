@@ -41,13 +41,13 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     <p class="text-sm mt-1">Todos los pedidos están al día</p>
   </div>
 
-  <!-- CARDS — items-start evita que se estiren a igual altura -->
+  <!-- CARDS -->
   <div *ngIf="!loading && cola.length > 0"
        class="grid gap-4 md:grid-cols-2 xl:grid-cols-3 items-start">
 
     <div *ngFor="let p of cola"
-         class="bg-white rounded-xl shadow-sm border border-gray-100
-                overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+         class="bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-shadow flex flex-col"
+         [ngClass]="p.origen === 'POS_MIXTO' ? 'border-blue-200 border-2' : 'border-gray-100'">
 
       <!-- Cabecera -->
       <div class="flex justify-between items-start px-4 pt-4 pb-3 border-b border-gray-50">
@@ -58,6 +58,12 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
                   class="text-xs px-2.5 py-0.5 rounded-full font-medium whitespace-nowrap">
               {{ p.estado }}
             </span>
+            <!-- ↓↓↓ NUEVO: Badge POS Mixto ↓↓↓ -->
+            <span *ngIf="p.origen === 'POS_MIXTO'"
+                  class="text-xs px-2 py-0.5 rounded-full font-medium whitespace-nowrap bg-blue-100 text-blue-700 border border-blue-300">
+              📦 POS Mixto
+            </span>
+            <!-- ↑↑↑ ↑↑↑ -->
           </div>
           <p class="text-sm font-medium text-gray-700 truncate">{{ p.cliente }}</p>
           <p class="text-xs text-gray-400 mt-0.5">
@@ -79,7 +85,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
         </div>
       </div>
 
-      <!-- Observaciones — espacio reservado para mantener alineación -->
+      <!-- Observaciones -->
       <div class="mx-4 mt-3 min-h-[28px]">
         <div *ngIf="p.observaciones"
              class="px-3 py-1.5 bg-yellow-50 border border-yellow-200
@@ -88,23 +94,86 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
         </div>
       </div>
 
-      <!-- Productos con semáforo -->
+      <!-- ↓↓↓ NUEVO: Aviso de items no producidos ↓↓↓ -->
+      <div *ngIf="cantidadNoProducidos(p) > 0" class="mx-4 mt-2">
+        <div class="px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-medium">
+          ⚠️ {{ cantidadNoProducidos(p) }} item(s) marcado(s) como no producido(s)
+        </div>
+      </div>
+      <!-- ↑↑↑ ↑↑↑ -->
+
+      <!-- Productos -->
       <div class="px-4 py-3 flex-1">
         <p class="text-xs text-gray-400 uppercase tracking-wide mb-2 font-medium">Productos</p>
         <div class="space-y-2">
+
           <div *ngFor="let d of p.detalles"
-               class="flex items-center justify-between text-sm">
-            <div class="flex items-center gap-2 min-w-0">
+               class="flex items-start justify-between text-sm rounded-lg p-1.5 -mx-1.5"
+               [ngClass]="{
+                 'bg-red-50/50': d.no_producido,
+                 'bg-blue-50/30': d.es_encargo && !d.no_producido
+               }">
+
+            <div class="flex items-start gap-2 min-w-0 flex-1">
               <span [class]="getSemaforoClase(d.semaforo)"
-                    class="w-2.5 h-2.5 rounded-full flex-shrink-0"></span>
-              <span class="text-gray-700 text-sm truncate">{{ d.producto }}</span>
+                    class="w-2.5 h-2.5 rounded-full flex-shrink-0 mt-1.5"></span>
+
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span class="text-gray-700 text-sm truncate"
+                        [class.line-through]="d.no_producido"
+                        [class.text-gray-400]="d.no_producido">{{ d.producto }}</span>
+
+                  <!-- ↓↓↓ NUEVO: Badge STOCK vs ENCARGO ↓↓↓ -->
+                  <span *ngIf="d.es_encargo"
+                        class="text-xs bg-blue-600 text-white px-1.5 py-0 rounded font-medium">
+                    ENCARGO
+                  </span>
+                  <span *ngIf="!d.es_encargo"
+                        class="text-xs bg-gray-200 text-gray-600 px-1.5 py-0 rounded font-medium">
+                    STOCK
+                  </span>
+                  <!-- ↑↑↑ ↑↑↑ -->
+
+                  <!-- ↓↓↓ NUEVO: Badge no producido ↓↓↓ -->
+                  <span *ngIf="d.no_producido"
+                        class="text-xs bg-red-600 text-white px-1.5 py-0 rounded font-medium">
+                    NO PRODUCIDO
+                  </span>
+                </div>
+
+                <!-- ↓↓↓ NUEVO: Motivo del no producido ↓↓↓ -->
+                <p *ngIf="d.no_producido && d.motivo_no_producido"
+                   class="text-xs text-red-600 italic mt-0.5">
+                  → {{ d.motivo_no_producido }}
+                </p>
+                <!-- ↑↑↑ ↑↑↑ -->
+              </div>
             </div>
-            <div class="flex items-center gap-3 flex-shrink-0 ml-2">
-              <span class="text-gray-500 text-xs">x{{ d.cantidad }}</span>
-              <span [class]="getStockTexto(d.semaforo)"
+
+            <div class="flex items-center gap-2 flex-shrink-0 ml-2">
+              <span class="text-gray-500 text-xs whitespace-nowrap">x{{ d.cantidad }}</span>
+              <span *ngIf="!d.es_encargo" [class]="getStockTexto(d.semaforo)"
                     class="text-xs font-semibold whitespace-nowrap">
                 stock: {{ d.stock_actual }}
               </span>
+
+              <!-- ↓↓↓ NUEVO: Botón marcar no producido ↓↓↓ -->
+              <button *ngIf="d.es_encargo && !d.no_producido && puedeMarcarNoProducido(p)"
+                      (click)="abrirModalNoProducido(d)"
+                      title="Marcar como no se pudo fabricar"
+                      class="w-6 h-6 flex items-center justify-center rounded-full bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 text-xs transition-colors">
+                ✕
+              </button>
+
+              <!-- Botón revertir no producido -->
+              <button *ngIf="d.no_producido && puedeMarcarNoProducido(p)"
+                      (click)="revertirNoProducido(d)"
+                      title="Revertir marca de no producido"
+                      class="w-6 h-6 flex items-center justify-center rounded-full bg-emerald-50 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-700 text-xs transition-colors">
+                ↻
+              </button>
+              <!-- ↑↑↑ ↑↑↑ -->
             </div>
           </div>
         </div>
@@ -150,7 +219,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
     </div>
   </div>
 
-  <!-- ══ MODAL REGISTRAR PRODUCCIÓN ══ -->
+  <!-- ══ MODAL REGISTRAR PRODUCCIÓN (sin cambios) ══ -->
   <div *ngIf="mostrarModalProduccion"
        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-screen overflow-y-auto">
@@ -169,7 +238,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
       </div>
 
       <div class="p-6 space-y-4">
-
         <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-700">
           💡 Indica cuánto produjiste de cada producto y en qué almacén se registrará la entrada de stock.
         </div>
@@ -217,7 +285,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
           </div>
         </div>
-
       </div>
 
       <div class="flex gap-2 px-6 pb-6">
@@ -231,6 +298,56 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
                 class="flex-1 py-2.5 bg-green-600 hover:bg-green-700 text-white
                        rounded-xl text-sm font-semibold disabled:opacity-50 transition-colors">
           {{ guardandoProduccion ? 'Registrando...' : '✓ Confirmar producción' }}
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══ NUEVO MODAL: Marcar item como no producido ══ -->
+  <div *ngIf="mostrarModalNoProducido"
+       class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+
+      <div class="flex justify-between items-center p-5 border-b">
+        <div>
+          <h3 class="text-lg font-bold text-gray-800">No se pudo fabricar</h3>
+          <p class="text-sm text-gray-500 mt-0.5">{{ detalleNoProducido?.producto }}</p>
+        </div>
+        <button (click)="mostrarModalNoProducido = false"
+                class="text-gray-400 hover:text-gray-600 text-xl w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100">✕</button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <div class="bg-orange-50 border border-orange-200 rounded-xl p-3 text-xs text-orange-700">
+          ⚠️ Al marcar como no producido, este item se descontará del total al entregar el pedido.
+          El cliente recibirá un extorno si ya pagó por adelantado.
+        </div>
+
+        <div>
+          <label class="text-xs text-gray-500 block mb-1.5 uppercase tracking-wide font-medium">
+            Motivo * <span class="text-gray-400 font-normal normal-case ml-1">(máx 300)</span>
+          </label>
+          <textarea [(ngModel)]="motivoNoProducido"
+                    rows="3"
+                    maxlength="300"
+                    placeholder="Ej: Sin insumos para el relleno de chocolate"
+                    class="w-full p-3 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-red-400 outline-none resize-none"></textarea>
+          <p class="text-xs text-gray-400 mt-1 text-right">
+            {{ motivoNoProducido.length }} / 300
+          </p>
+        </div>
+      </div>
+
+      <div class="flex gap-2 px-5 pb-5">
+        <button (click)="mostrarModalNoProducido = false"
+                class="flex-1 py-2.5 bg-gray-100 hover:bg-gray-200 rounded-xl text-sm font-medium">
+          Cancelar
+        </button>
+        <button (click)="confirmarNoProducido()"
+                [disabled]="guardandoNoProducido || !motivoNoProducido.trim()"
+                class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-semibold disabled:opacity-50">
+          {{ guardandoNoProducido ? 'Guardando...' : 'Confirmar' }}
         </button>
       </div>
 
@@ -258,6 +375,12 @@ export class SeguimientoComponent implements OnInit {
     cantidad_producida: number;
     almacen_id:         number | null;
   }[] = [];
+
+  // ── NUEVO: estado del modal "no producido" ──
+  mostrarModalNoProducido = false;
+  detalleNoProducido: any = null;
+  motivoNoProducido = '';
+  guardandoNoProducido = false;
 
   private readonly siguienteEstado: Record<string, number> = {
     'PENDIENTE':      2,
@@ -293,7 +416,6 @@ export class SeguimientoComponent implements OnInit {
         next: (res) => {
           this.cola    = res;
           this.loading = false;
-          // ← fix NG0100: defer detectChanges fuera del ciclo actual
           setTimeout(() => this.cd.detectChanges());
         },
         error: () => {
@@ -303,6 +425,96 @@ export class SeguimientoComponent implements OnInit {
         }
       });
   }
+
+  // ═════════════════════════════════════════════════════════════
+  // NUEVO: Lógica de "no producido"
+  // ═════════════════════════════════════════════════════════════
+
+  cantidadNoProducidos(p: any): number {
+    return p.detalles?.filter((d: any) => d.no_producido).length ?? 0;
+  }
+
+  /** Solo Admin (1), SuperAdmin (0) y Producción (3) pueden marcar no producido.
+   *  Y solo en pedidos CONFIRMADO o EN_PREPARACION. */
+  puedeMarcarNoProducido(p: any): boolean {
+    const rol = this.authService.getRolId();
+    if (rol !== 0 && rol !== 1 && rol !== 3) return false;
+    return p.estado === 'CONFIRMADO' || p.estado === 'EN_PREPARACION';
+  }
+
+  abrirModalNoProducido(d: any) {
+    this.detalleNoProducido = d;
+    this.motivoNoProducido = '';
+    this.mostrarModalNoProducido = true;
+    this.cd.detectChanges();
+  }
+
+  confirmarNoProducido() {
+    if (this.guardandoNoProducido) return;
+    if (!this.motivoNoProducido.trim()) {
+      Swal.fire('Atención', 'El motivo es obligatorio', 'warning');
+      return;
+    }
+
+    this.guardandoNoProducido = true;
+    this.cd.detectChanges();
+
+    this.seguimientoService
+      .marcarNoProducido(this.detalleNoProducido.detalle_id, this.motivoNoProducido.trim())
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: () => {
+          this.guardandoNoProducido = false;
+          this.mostrarModalNoProducido = false;
+          Swal.fire({
+            icon: 'success',
+            title: 'Item marcado',
+            text: 'Se notificará a caja al entregar el pedido',
+            timer: 2000,
+            showConfirmButton: false
+          });
+          this.cargar();
+        },
+        error: (err) => {
+          this.guardandoNoProducido = false;
+          const msg = err?.error?.mensaje || err?.error || 'No se pudo marcar';
+          Swal.fire('Error', msg, 'error');
+          this.cd.detectChanges();
+        }
+      });
+  }
+
+  revertirNoProducido(d: any) {
+    Swal.fire({
+      title: '¿Revertir marca?',
+      text: `Volver a tratar "${d.producto}" como producible`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, revertir',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#059669'
+    }).then(r => {
+      if (!r.isConfirmed) return;
+      this.seguimientoService.revertirNoProducido(d.detalle_id)
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe({
+          next: () => {
+            Swal.fire({
+              icon: 'success',
+              title: 'Marca revertida',
+              timer: 1500,
+              showConfirmButton: false
+            });
+            this.cargar();
+          },
+          error: (err) => Swal.fire('Error', err?.error?.mensaje || 'No se pudo revertir', 'error')
+        });
+    });
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // EXISTENTE (sin cambios)
+  // ═════════════════════════════════════════════════════════════
 
   abrirModalProduccion(p: any) {
     this.pedidoProduccion       = p;
@@ -371,28 +583,34 @@ export class SeguimientoComponent implements OnInit {
     const siguiente = this.siguienteEstado[p.estado];
     if (!siguiente) return;
 
+    // Si va a LISTO: ignorar stock de items NO producidos y de items encargo
     if (siguiente === 4 && this.tieneStockCritico(p)) {
-      const sinStock = p.detalles.filter((d: any) => d.semaforo === 'sin_stock');
-      const lista = sinStock
-        .map((d: any) =>
-          `<li style="margin:4px 0">
-            <b>${d.producto}</b>
-            <span style="color:#6b7280"> — stock: ${d.stock_actual}</span>
-          </li>`)
-        .join('');
+      const sinStock = p.detalles.filter((d: any) =>
+        d.semaforo === 'sin_stock' && !d.es_encargo && !d.no_producido
+      );
 
-      Swal.fire({
-        icon:  'warning',
-        title: '⚠️ Stock insuficiente',
-        html:  `<p style="margin-bottom:8px">No puedes marcar como listo — faltan productos:</p>
-                <ul style="text-align:left;list-style:none;padding:0">${lista}</ul>
-                <p style="color:#6b7280;font-size:13px;margin-top:12px">
-                  Usa <b>"+ Registrar producción"</b> para agregar el stock faltante.
-                </p>`,
-        confirmButtonText:  'Entendido',
-        confirmButtonColor: '#f59e0b'
-      });
-      return;
+      if (sinStock.length > 0) {
+        const lista = sinStock
+          .map((d: any) =>
+            `<li style="margin:4px 0">
+              <b>${d.producto}</b>
+              <span style="color:#6b7280"> — stock: ${d.stock_actual}</span>
+            </li>`)
+          .join('');
+
+        Swal.fire({
+          icon:  'warning',
+          title: '⚠️ Stock insuficiente',
+          html:  `<p style="margin-bottom:8px">No puedes marcar como listo — faltan productos:</p>
+                  <ul style="text-align:left;list-style:none;padding:0">${lista}</ul>
+                  <p style="color:#6b7280;font-size:13px;margin-top:12px">
+                    Usa <b>"+ Registrar producción"</b> para agregar el stock faltante.
+                  </p>`,
+          confirmButtonText:  'Entendido',
+          confirmButtonColor: '#f59e0b'
+        });
+        return;
+      }
     }
 
     const textos: Record<string, { titulo: string; texto: string; btn: string }> = {
@@ -459,7 +677,10 @@ export class SeguimientoComponent implements OnInit {
   }
 
   tieneStockCritico(p: any): boolean {
-    return p.detalles.some((d: any) => d.semaforo === 'sin_stock');
+    // Ignora items encargo y los marcados como no_producido
+    return p.detalles.some((d: any) =>
+      d.semaforo === 'sin_stock' && !d.es_encargo && !d.no_producido
+    );
   }
 
   getTextoBoton(estado: string): string {
